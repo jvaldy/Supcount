@@ -1,0 +1,48 @@
+# === Symfony env secrets ===
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.dev
+**/.env.test
+
+# === Symfony cache, logs, builds ===
+**/var/
+**/vendor/
+**/public/build/
+**/config/secrets/
+**/config/jwt/
+
+# === Composer ===
+**/composer.lock
+**/symfony.lock
+
+# === Logs & temp files ===
+*.log
+*.lock
+*.cache
+*.tmp
+
+# === IDE, OS, backup ===
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swo
+*.swp
+*~
+*.bak
+
+# === Docker & base de données ===
+app/db/       # ton volume MySQL complet (pas à la racine, mais dans /app)
+**/Dockerfile~
+**/compose.override.yaml
+**/compose.override.yml
+/app/db/*
+!/app/db/README.md
+
+# === PHPUnit & test cache ===
+**/phpunit.xml.cache
+
+# === Node/npm (si un jour tu ajoutes du JS ou Vite) ===
+**/node_modules/
+**/dist/

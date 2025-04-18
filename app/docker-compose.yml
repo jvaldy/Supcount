@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: supcount_backend
+    ports:
+      - "49162:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "mysql://supcount_user_a7X9:S@f3_P@ss_MYSQL_89!@db:3306/supcount_prod_db"
+    networks:
+      - supcount_net
+
+  frontend:
+    build: ./frontend
+    container_name: supcount_frontend
+    ports:
+      - "49161:8000"
+    volumes:
+      - ./frontend:/app
+    networks:
+      - supcount_net
+
+  db:
+    image: mysql:8.0
+    container_name: supcount_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: S@f3Root_2025!
+      MYSQL_DATABASE: supcount_prod_db
+      MYSQL_USER: supcount_user_a7X9
+      MYSQL_PASSWORD: S@f3_P@ss_MYSQL_89!
+    volumes:
+      - ./db:/var/lib/mysql
+    ports:
+      - "49163:3306"
+    networks:
+      - supcount_net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: supcount_phpmyadmin
+    restart: always
+    ports:
+      - "49164:80"  # Tu accéderas à phpMyAdmin via localhost:49164
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: supcount_user_a7X9
+      PMA_PASSWORD: S@f3_P@ss_MYSQL_89!
+    depends_on:
+      - db
+    networks:
+      - supcount_net
+
+networks:
+  supcount_net:
