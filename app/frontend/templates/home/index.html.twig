@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Page d'accueil</title>
+</head>
+<body>
+    <h1>Bienvenue sur la page d'accueil</h1>
+
+    <p id="user-info">Chargement des données utilisateur...</p>
+    <button id="logout">Déconnexion</button>
+
+    <script>
+        const token = localStorage.getItem('jwt');
+
+        // Si aucun token trouvé, redirection vers la page login
+        if (!token) {
+            window.location.href = '/login';
+        } else {
+            fetch('http://localhost:49162/api/profile', { // Vérifie bien ton port backend
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            }).then(async res => {
+                if (res.ok) {
+                    const user = await res.json();
+                    document.getElementById('user-info').textContent = 
+                        `Connecté en tant que : ${user.username} (${user.email})`;
+                } else {
+                    // En cas de problème de token (expiré, invalide)
+                    localStorage.removeItem('jwt');
+                    window.location.href = '/login';
+                }
+            }).catch(() => {
+                document.getElementById('user-info').textContent = 'Impossible de charger les données utilisateur.';
+            });
+        }
+
+        // Bouton déconnexion
+        document.getElementById('logout').addEventListener('click', () => {
+            localStorage.removeItem('jwt');
+            window.location.href = '/login';
+        });
+    </script>
+</body>
+</html>

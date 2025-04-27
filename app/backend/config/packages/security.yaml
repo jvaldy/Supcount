@@ -13,10 +13,7 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
-        register:
-            pattern: ^/api/register
-            stateless: true
-            security: false
+        
 
         login:
             pattern:  ^/api/login
@@ -27,6 +24,11 @@ security:
                 password_path:            password
                 success_handler:          lexik_jwt_authentication.handler.authentication_success
                 failure_handler:          lexik_jwt_authentication.handler.authentication_failure
+
+        register:
+            pattern: ^/api/register
+            stateless: true
+            security: false
 
         api:
             pattern:   ^/api

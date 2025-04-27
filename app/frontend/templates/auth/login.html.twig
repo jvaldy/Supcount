@@ -5,33 +5,34 @@
     <button type="submit">Se connecter</button>
 </form>
 
-<p id="login-result"></p>
+<p id="login-result" style="color: green;"></p>
 
 <script>
 document.getElementById('login-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
-    const form = e.target;
-    const res = await fetch('http://localhost:8000/api/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            email: form.email.value,
-            password: form.password.value
-        })
-    });
+    const email = e.target.email.value;
+    const password = e.target.password.value;
 
-    const data = await res.json();
+    try {
+        const res = await fetch('http://localhost:49162/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
 
-    if (data.token) {
-        localStorage.setItem('jwt', data.token);
-        document.getElementById('login-result').textContent = 'Connexion réussie';
-        // Redirige vers une autre page si tu veux :
-        // window.location.href = '/dashboard';
-    } else {
-        document.getElementById('login-result').textContent = data.message || 'Échec de la connexion';
+        const data = await res.json();
+
+        if (res.ok && data.token) {
+            localStorage.setItem('jwt', data.token);
+            document.getElementById('login-result').textContent = 'Connexion réussie ✅';
+            window.location.href = '/accueil'; // redirection vers ta page sécurisée
+        } else {
+            document.getElementById('login-result').textContent = data.message || 'Identifiants incorrects ❌';
+        }
+    } catch (err) {
+        document.getElementById('login-result').textContent = 'Erreur de connexion.';
+        console.error(err);
     }
 });
 </script>
