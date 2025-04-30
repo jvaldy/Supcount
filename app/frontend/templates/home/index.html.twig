@@ -10,38 +10,161 @@
     <p id="user-info">Chargement des données utilisateur...</p>
     <button id="logout">Déconnexion</button>
 
-    <script>
-        const token = localStorage.getItem('jwt');
+    <h2>Créer un nouveau groupe</h2>
+    <input type="text" id="new-group-name" placeholder="Nom du groupe">
+    <button id="create-group">Créer le groupe</button>
+    <hr>
 
-        // Si aucun token trouvé, redirection vers la page login
-        if (!token) {
-            window.location.href = '/login';
-        } else {
-            fetch('http://localhost:49162/api/profile', { // Vérifie bien ton port backend
-                method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                }
-            }).then(async res => {
-                if (res.ok) {
-                    const user = await res.json();
-                    document.getElementById('user-info').textContent = 
-                        `Connecté en tant que : ${user.username} (${user.email})`;
-                } else {
-                    // En cas de problème de token (expiré, invalide)
-                    localStorage.removeItem('jwt');
-                    window.location.href = '/login';
-                }
-            }).catch(() => {
-                document.getElementById('user-info').textContent = 'Impossible de charger les données utilisateur.';
+
+    <h2>Mes groupes</h2>
+    <ul id="group-list">Chargement...</ul>
+
+    <script>
+    const token = localStorage.getItem('jwt');
+
+    if (!token) {
+        window.location.href = '/login';
+    } else {
+        fetch('http://localhost:49162/api/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        }).then(async res => {
+            if (res.ok) {
+                const user = await res.json();
+                document.getElementById('user-info').textContent =
+                    `Connecté en tant que : ${user.username} (${user.email})`;
+                loadGroups();
+            } else {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login';
+            }
+        }).catch(() => {
+            document.getElementById('user-info').textContent = 'Impossible de charger les données utilisateur.';
+        });
+    }
+
+    function loadGroups() {
+        fetch('http://localhost:49162/api/my-groups', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        }).then(res => res.json())
+          .then(groups => {
+            const list = document.getElementById('group-list');
+            list.innerHTML = '';
+
+            if (groups.length === 0) {
+                list.textContent = 'Aucun groupe trouvé.';
+                return;
+            }
+
+            groups.forEach(group => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${group.name}</strong> (ID: ${group.id})<br>
+                    <button onclick="window.location.href='/group/${group.id}'">Voir</button>
+                    <button onclick="deleteGroup(${group.id})">Supprimer</button>
+                    <button onclick="viewMembers(${group.id})">Voir les membres</button>
+                    <button onclick="checkRole(${group.id})">Mon rôle</button>
+                    <div id="group-${group.id}-members"></div>
+                    <div id="group-${group.id}-role"></div>
+                    <hr>
+                `;
+                list.appendChild(li);
             });
+        }).catch(() => {
+            document.getElementById('group-list').textContent = 'Erreur de chargement des groupes.';
+        });
+    }
+
+    function deleteGroup(groupId) {
+        if (!confirm("Supprimer ce groupe ?")) return;
+
+        fetch(`http://localhost:49162/api/groups/${groupId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        }).then(res => {
+            if (res.ok) {
+                alert("Groupe supprimé");
+                loadGroups();
+            } else {
+                alert("Erreur lors de la suppression");
+            }
+        });
+    }
+
+    function viewMembers(groupId) {
+        fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        }).then(res => res.json())
+          .then(members => {
+            const container = document.getElementById(`group-${groupId}-members`);
+            container.innerHTML = '<strong>Membres :</strong><ul>' +
+                members.map(m => `<li>${m.username} (${m.email})</li>`).join('') +
+                '</ul>';
+        }).catch(() => {
+            alert("Erreur de récupération des membres.");
+        });
+    }
+
+    function checkRole(groupId) {
+        fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        }).then(res => res.json())
+          .then(data => {
+            const container = document.getElementById(`group-${groupId}-role`);
+            container.innerHTML = `<strong>Rôle :</strong> ${data.role}`;
+        }).catch(() => {
+            alert("Erreur lors de la récupération du rôle.");
+        });
+    }
+
+    // ➕ Créer un groupe
+    document.getElementById('create-group').addEventListener('click', () => {
+        const groupName = document.getElementById('new-group-name').value.trim();
+        if (!groupName) {
+            alert("Le nom du groupe est requis.");
+            return;
         }
 
-        // Bouton déconnexion
-        document.getElementById('logout').addEventListener('click', () => {
-            localStorage.removeItem('jwt');
-            window.location.href = '/login';
+        fetch('http://localhost:49162/api/groups', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ name: groupName })
+        }).then(async res => {
+            if (res.ok) {
+                alert("Groupe créé !");
+                document.getElementById('new-group-name').value = '';
+                loadGroups();
+            } else {
+                const error = await res.json();
+                alert("Erreur : " + (error.error || "Impossible de créer le groupe."));
+            }
+        }).catch(() => {
+            alert("Erreur réseau");
         });
-    </script>
+    });
+
+    // Déconnexion
+    document.getElementById('logout').addEventListener('click', () => {
+        localStorage.removeItem('jwt');
+        window.location.href = '/login';
+    });
+</script>
+
 </body>
 </html>

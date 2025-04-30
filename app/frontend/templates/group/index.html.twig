@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Détails du groupe</title>
+</head>
+<body>
+    <h1>Détails du groupe</h1>
+    <p><a href="/accueil">⬅ Retour à l'accueil</a></p>
+
+    <div id="group-info">Chargement des infos...</div>
+    <div id="group-role"></div>
+    <div id="group-members"></div>
+    <div id="group-expenses"></div>
+    <div id="group-balances"></div>
+
+    <script>
+        const token = localStorage.getItem('jwt');
+        const groupId = {{ groupId }};
+
+        if (!token) {
+            window.location.href = '/login';
+        } else {
+            // 1. Infos principales du groupe
+            fetch(`http://localhost:49162/api/groups/${groupId}`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(res => res.json())
+              .then(group => {
+                document.getElementById('group-info').innerHTML = `
+                    <h2>${group.name}</h2>
+                    <p>Créé le : ${group.createdAt}</p>
+                    <p>Créé par : ${group.createdBy.username} (${group.createdBy.email})</p>
+                `;
+            });
+
+            // 2. Rôle de l'utilisateur
+            fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(res => res.json())
+              .then(data => {
+                document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${data.role}`;
+            });
+
+            // 3. Membres
+            fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(res => res.json())
+              .then(members => {
+                const html = members.map(m => `<li><strong>${m.username}</strong> (${m.email}) - <em>${m.role}</em></li>`).join('');
+                document.getElementById('group-members').innerHTML = `<h3>Membres :</h3><ul>${html}</ul>`;
+
+            });
+
+            // 4. Dépenses
+            fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(res => res.json())
+              .then(expenses => {
+                if (expenses.length === 0) {
+                    document.getElementById('group-expenses').innerHTML = '<h3>Aucune dépense pour ce groupe.</h3>';
+                    return;
+                }
+
+                const html = expenses.map(e => `
+                    <li>
+                        <strong>${e.title}</strong> - ${e.amount} €<br>
+                        Payé par : ${e.paidBy} <br>
+                        Concernés : ${e.concernedUsers.join(', ')}
+                    </li>
+                `).join('');
+
+                document.getElementById('group-expenses').innerHTML = `<h3>Dépenses :</h3><ul>${html}</ul>`;
+            });
+
+            // 5. Soldes
+            fetch(`http://localhost:49162/api/groups/${groupId}/balances`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(res => res.json())
+              .then(balances => {
+                const html = Object.entries(balances).map(([userId, balance]) => 
+                    `<li>User ID ${userId} : ${parseFloat(balance).toFixed(2)} €</li>`
+                ).join('');
+
+                document.getElementById('group-balances').innerHTML = `<h3>Soldes :</h3><ul>${html}</ul>`;
+            });
+        }
+    </script>
+</body>
+</html>
