@@ -246,9 +246,14 @@ class GroupController extends AbstractController
         }
 
         foreach ($expenses as $expense) {
-            $amount = $expense->getAmount();
+            $amount = (float) $expense->getAmount();
             $concernedUsers = $expense->getConcernedUsers();
-            $share = $amount / count($concernedUsers);
+            $count = count($concernedUsers);
+
+            // 💥 Protection contre division par 0
+            if ($count === 0) continue;
+
+            $share = $amount / $count;
 
             foreach ($concernedUsers as $concernedUser) {
                 $balances[$concernedUser->getId()] -= $share;
@@ -259,4 +264,5 @@ class GroupController extends AbstractController
 
         return $this->json($balances, 200);
     }
+
 }

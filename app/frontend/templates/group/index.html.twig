@@ -11,6 +11,17 @@
     <div id="group-info">Chargement des infos...</div>
     <div id="group-role"></div>
     <div id="group-members"></div>
+
+    <!-- Création de dépense -->
+    <h3>Créer une nouvelle dépense</h3>
+    <input type="text" id="expense-title" placeholder="Titre">
+    <input type="number" id="expense-amount" placeholder="Montant">
+    <input type="date" id="expense-date">
+    <input type="text" id="expense-category" placeholder="Catégorie">
+    <input type="text" id="expense-users" placeholder="IDs des utilisateurs concernés (ex: 1,2)">
+    <button id="create-expense">Créer la dépense</button>
+    <p id="expense-result"></p>
+
     <div id="group-expenses"></div>
     <div id="group-balances"></div>
 
@@ -21,74 +32,111 @@
         if (!token) {
             window.location.href = '/login';
         } else {
-            // 1. Infos principales du groupe
-            fetch(`http://localhost:49162/api/groups/${groupId}`, {
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(res => res.json())
-              .then(group => {
+            Promise.all([
+                fetch(`http://localhost:49162/api/groups/${groupId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).then(r => r.json()),
+
+                fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).then(r => r.json()),
+
+                fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).then(r => r.json()),
+
+                fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).then(r => r.json()),
+
+                fetch(`http://localhost:49162/api/groups/${groupId}/balances`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).then(r => r.json())
+            ])
+            .then(([group, role, members, expenses, balances]) => {
+                // Infos groupe
                 document.getElementById('group-info').innerHTML = `
                     <h2>${group.name}</h2>
                     <p>Créé le : ${group.createdAt}</p>
                     <p>Créé par : ${group.createdBy.username} (${group.createdBy.email})</p>
                 `;
+
+                // Rôle
+                document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${role.role}`;
+
+                // Membres
+                const memberHTML = members.map(m => `<li><strong>${m.username}</strong> (${m.email}) - <em>${m.role}</em></li>`).join('');
+                document.getElementById('group-members').innerHTML = `<h3>Membres :</h3><ul>${memberHTML}</ul>`;
+
+                // Dépenses
+                const expenseContainer = document.getElementById('group-expenses');
+                if (!expenses.length) {
+                    expenseContainer.innerHTML = '<h3>Aucune dépense pour ce groupe.</h3>';
+                } else {
+                    const expenseHTML = expenses.map(e => `
+                        <li>
+                            <strong>${e.title}</strong> - ${e.amount} €<br>
+                            Catégorie : ${e.category}<br>
+                            Date : ${e.date}<br>
+                            Payé par : ${e.paidBy}<br>
+                            Participants : ${e.concernedUsers.join(', ')}
+                        </li><br>
+                    `).join('');
+                    expenseContainer.innerHTML = `<h3>Dépenses :</h3><ul>${expenseHTML}</ul>`;
+                }
+
+                // Soldes
+                const balanceHTML = Object.entries(balances).map(
+                    ([userId, balance]) => `<li>User ID ${userId} : ${parseFloat(balance).toFixed(2)} €</li>`
+                ).join('');
+                document.getElementById('group-balances').innerHTML = `<h3>Soldes :</h3><ul>${balanceHTML}</ul>`;
+            })
+            .catch(error => {
+                console.error("Erreur lors du chargement des infos du groupe :", error);
+                alert("Erreur lors du chargement des données du groupe.");
             });
 
-            // 2. Rôle de l'utilisateur
-            fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(res => res.json())
-              .then(data => {
-                document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${data.role}`;
-            });
+            // Soumission d'une nouvelle dépense
+            document.getElementById('create-expense').addEventListener('click', () => {
+                const title = document.getElementById('expense-title').value.trim();
+                const amount = document.getElementById('expense-amount').value;
+                const date = document.getElementById('expense-date').value;
+                const category = document.getElementById('expense-category').value.trim();
+                const users = document.getElementById('expense-users').value
+                    .split(',')
+                    .map(id => parseInt(id.trim()))
+                    .filter(Boolean);
 
-            // 3. Membres
-            fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(res => res.json())
-              .then(members => {
-                const html = members.map(m => `<li><strong>${m.username}</strong> (${m.email}) - <em>${m.role}</em></li>`).join('');
-                document.getElementById('group-members').innerHTML = `<h3>Membres :</h3><ul>${html}</ul>`;
-
-            });
-
-            // 4. Dépenses
-            fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(res => res.json())
-              .then(expenses => {
-                if (expenses.length === 0) {
-                    document.getElementById('group-expenses').innerHTML = '<h3>Aucune dépense pour ce groupe.</h3>';
+                if (!title || !amount || !date || !category || !users.length) {
+                    alert("Tous les champs sont obligatoires.");
                     return;
                 }
 
-                const html = expenses.map(e => `
-                    <li>
-                        <strong>${e.title}</strong> - ${e.amount} €<br>
-                        Payé par : ${e.paidBy} <br>
-                        Concernés : ${e.concernedUsers.join(', ')}
-                    </li>
-                `).join('');
-
-                document.getElementById('group-expenses').innerHTML = `<h3>Dépenses :</h3><ul>${html}</ul>`;
-            });
-
-            // 5. Soldes
-            fetch(`http://localhost:49162/api/groups/${groupId}/balances`, {
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(res => res.json())
-              .then(balances => {
-                const html = Object.entries(balances).map(([userId, balance]) => 
-                    `<li>User ID ${userId} : ${parseFloat(balance).toFixed(2)} €</li>`
-                ).join('');
-
-                document.getElementById('group-balances').innerHTML = `<h3>Soldes :</h3><ul>${html}</ul>`;
+                fetch('http://localhost:49162/api/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title,
+                        amount,
+                        date,
+                        category,
+                        group_id: groupId,
+                        concerned_user_ids: users
+                    })
+                }).then(async res => {
+                    const msg = await res.json();
+                    document.getElementById('expense-result').textContent = msg.message || msg.error;
+                    if (res.ok) {
+                        // Recharge les dépenses
+                        location.reload();
+                    }
+                });
             });
         }
     </script>
+
 </body>
 </html>
