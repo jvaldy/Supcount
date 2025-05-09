@@ -12,6 +12,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Security;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 
 use App\Repository\UserRepository;
 
@@ -25,33 +27,45 @@ class ExpenseController extends AbstractController
         UserRepository $userRepo,
         Security $security
     ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
         $user = $security->getUser();
 
-        foreach (['title', 'amount', 'date', 'category', 'group_id', 'concerned_user_ids'] as $field) {
-            if (!isset($data[$field])) {
-                return $this->json(['error' => "Champ manquant : $field"], 400);
-            }
+        $title = $request->get('title');
+        $amount = $request->get('amount');
+        $date = $request->get('date');
+        $category = $request->get('category');
+        $groupId = $request->get('group_id');
+        $concernedIds = json_decode($request->get('concerned_user_ids'), true);
+        /** @var UploadedFile|null $receipt */
+        $receipt = $request->files->get('receipt');
+
+        if (!$title || !$amount || !$date || !$category || !$groupId || !$concernedIds) {
+            return $this->json(['error' => 'Tous les champs sont requis.'], 400);
         }
 
-        $group = $em->getRepository(Group::class)->find($data['group_id']);
+        $group = $em->getRepository(Group::class)->find($groupId);
         if (!$group || !$group->getMembers()->contains($user)) {
             return $this->json(['error' => 'Accès au groupe refusé.'], 403);
         }
 
         $expense = new Expense();
-        $expense->setTitle($data['title']);
-        $expense->setAmount($data['amount']);
-        $expense->setDate(new \DateTime($data['date']));
-        $expense->setCategory($data['category']);
+        $expense->setTitle($title);
+        $expense->setAmount($amount);
+        $expense->setDate(new \DateTime($date));
+        $expense->setCategory($category);
         $expense->setGroup($group);
         $expense->setPaidBy($user);
 
-        if (isset($data['receipt'])) {
-            $expense->setReceipt($data['receipt']);
+        if ($receipt) {
+            $filename = uniqid() . '.' . $receipt->guessExtension();
+            try {
+                $receipt->move($this->getParameter('receipts_dir'), $filename);
+                $expense->setReceipt($filename);
+            } catch (FileException $e) {
+                return $this->json(['error' => 'Erreur lors de l’upload.'], 500);
+            }
         }
 
-        foreach ($data['concerned_user_ids'] as $id) {
+        foreach ($concernedIds as $id) {
             $concerned = $userRepo->find($id);
             if ($concerned && $group->getMembers()->contains($concerned)) {
                 $expense->addConcernedUser($concerned);
@@ -61,7 +75,7 @@ class ExpenseController extends AbstractController
         $em->persist($expense);
         $em->flush();
 
-        return $this->json(['message' => 'Dépense ajoutée.'], 201);
+        return $this->json(['message' => 'Dépense ajoutée avec justificatif.'], 201);
     }
 
     #[Route('/api/groups/{id}/expenses', name: 'list_group_expenses', methods: ['GET'])]
