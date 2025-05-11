@@ -15,6 +15,8 @@ use Symfony\Component\Security\Core\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 
+
+
 use App\Repository\UserRepository;
 
 
@@ -173,4 +175,95 @@ class ExpenseController extends AbstractController
 
         return $this->json(['message' => 'Dépense mise à jour.']);
     }
+
+    #[Route('/api/expenses/{id}/settlements', name: 'expense_settlements', methods: ['GET'])]
+    public function getExpenseSettlements(Expense $expense, Security $security): JsonResponse
+    {
+        $user = $security->getUser();
+        $group = $expense->getGroup();
+
+        if (!$group->getMembers()->contains($user)) {
+            return $this->json(['error' => 'Accès refusé'], 403);
+        }
+
+        $amount = (float)$expense->getAmount();
+        $payer = $expense->getPaidBy();
+        $concernedUsers = $expense->getConcernedUsers()->toArray();
+
+        if (empty($concernedUsers)) {
+            return $this->json(['error' => 'Aucun utilisateur concerné par cette dépense.'], 400);
+        }
+
+        // Initialisation précise des soldes
+        $balances = [];
+
+        foreach ($concernedUsers as $userConcerned) {
+            $balances[$userConcerned->getId()] = 0.0;
+        }
+
+        // Inclure automatiquement le payeur s'il n’est pas dans la liste des concernés
+        if (!isset($balances[$payer->getId()])) {
+            $balances[$payer->getId()] = 0.0;
+        }
+
+        $individualShare = round($amount / count($concernedUsers), 2);
+
+        // Attribution des dettes à chaque utilisateur concerné
+        foreach ($concernedUsers as $userConcerned) {
+            $balances[$userConcerned->getId()] -= $individualShare;
+        }
+
+        // Le payeur récupère la totalité du montant dépensé
+        $balances[$payer->getId()] += $amount;
+
+        // Séparation claire des créditeurs et débiteurs
+        $creditors = [];
+        $debtors = [];
+
+        foreach ($balances as $userId => $balance) {
+            if ($balance > 0) {
+                $creditors[$userId] = $balance;
+            } elseif ($balance < 0) {
+                $debtors[$userId] = abs($balance);
+            }
+        }
+
+        // Calcul optimisé des remboursements
+        $settlements = [];
+        foreach ($debtors as $debtorId => $debtAmount) {
+            foreach ($creditors as $creditorId => $creditAmount) {
+                if ($debtAmount === 0) break;
+
+                $payment = min($debtAmount, $creditAmount);
+
+                $settlements[] = [
+                    'from' => $debtorId,
+                    'to' => $creditorId,
+                    'amount' => round($payment, 2),
+                ];
+
+                $debtors[$debtorId] -= $payment;
+                $creditors[$creditorId] -= $payment;
+
+                if ($creditors[$creditorId] === 0.0) {
+                    unset($creditors[$creditorId]);
+                }
+            }
+        }
+
+        return $this->json([
+            'expense' => [
+                'id' => $expense->getId(),
+                'title' => $expense->getTitle(),
+                'amount' => $amount,
+                'paid_by' => $payer->getUsername(),
+            ],
+            'settlements' => $settlements,
+        ]);
+    }
+
+
+
+
+
 }

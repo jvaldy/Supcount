@@ -46,3 +46,4 @@ app/db/       # ton volume MySQL complet (pas à la racine, mais dans /app)
 # === Node/npm (si un jour tu ajoutes du JS ou Vite) ===
 **/node_modules/
 **/dist/
+app/backend/public/uploads/receipts/

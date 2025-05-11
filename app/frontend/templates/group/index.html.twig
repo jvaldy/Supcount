@@ -1,152 +1,231 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Détails du groupe</title>
+  <meta charset="UTF-8">
+  <title>Détails du groupe</title>
+  <style>
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .tab-buttons button {
+      margin-right: 10px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Détails du groupe</h1>
-    <p><a href="/accueil">⬅ Retour à l'accueil</a></p>
+  <h1>Détails du groupe</h1>
+  <p><a href="/accueil">⬅ Retour à l'accueil</a></p>
 
-    <div id="group-info">Chargement des infos...</div>
-    <div id="group-role"></div>
-    <div id="group-members"></div>
+  <div class="tab-buttons">
+    <button onclick="showTab('info-tab')">📄 Infos</button>
+    <button onclick="showTab('create-tab')">➕ Nouvelle dépense</button>
+    <button onclick="showTab('expenses-tab')">📋 Dépenses</button>
+    <button onclick="showTab('balances-tab')">💰 Soldes</button>
+    <button onclick="showTab('settlement-tab')">💸 Remboursements</button>
+  </div>
 
-    <!-- Création de dépense -->
-    {# <h3>Créer une nouvelle dépense</h3>
-    <input type="text" id="expense-title" placeholder="Titre">
-    <input type="number" id="expense-amount" placeholder="Montant">
-    <input type="date" id="expense-date">
-    <input type="text" id="expense-category" placeholder="Catégorie">
-    <input type="text" id="expense-users" placeholder="IDs des utilisateurs concernés (ex: 1,2)">
-    <button id="create-expense">Créer la dépense</button>
-    <p id="expense-result"></p> #}
+  <!-- Onglet : Informations du groupe -->
+  <div id="info-tab" class="tab active">
+    <section id="group-info">Chargement des infos du groupe...</section>
+    <section id="group-role"></section>
+    <section id="group-members"></section>
+  </div>
 
-    <h3>Créer une nouvelle dépense</h3>
+  <!-- Onglet : Création d’une dépense -->
+  <div id="create-tab" class="tab">
+    <h2>Créer une nouvelle dépense</h2>
     <form id="expense-form" enctype="multipart/form-data">
-        <input type="text" id="expense-title" name="title" placeholder="Titre" required>
-        <input type="number" id="expense-amount" name="amount" placeholder="Montant" required>
-        <input type="date" id="expense-date" name="date" required>
-        <input type="text" id="expense-category" name="category" placeholder="Catégorie" required>
-        <input type="text" id="expense-users" name="users" placeholder="IDs des utilisateurs concernés (ex: 1,2)" required>
-        <input type="file" id="expense-receipt" name="receipt" accept=".pdf,image/*">
-        <button type="submit">Créer la dépense</button>
+      <input type="text" id="expense-title" placeholder="Intitulé" required>
+      <input type="number" id="expense-amount" placeholder="Montant (€)" required>
+      <input type="date" id="expense-date" required>
+      <input type="text" id="expense-category" placeholder="Catégorie" required>
+      <input type="text" id="expense-users" placeholder="IDs des utilisateurs concernés (ex: 1,2)" required>
+      <input type="file" id="expense-receipt" accept=".pdf,image/*">
+      <button type="submit">Ajouter la dépense</button>
     </form>
     <p id="expense-result"></p>
+  </div>
 
-    <div id="group-expenses"></div>
-    <div id="group-balances"></div>
+  <!-- Onglet : Liste des dépenses -->
+  <div id="expenses-tab" class="tab">
+    <h2>Dépenses du groupe</h2>
+    <label for="sort-expenses">Trier par :</label>
+    <select id="sort-expenses">
+      <option value="date">Date</option>
+      <option value="amount">Montant</option>
+      <option value="paidBy">Payé par</option>
+    </select>
+    <ul id="group-expenses">Chargement...</ul>
+  </div>
+
+  <!-- Onglet : Soldes -->
+  <div id="balances-tab" class="tab">
+    <h2>Soldes des membres</h2>
+    <ul id="group-balances">Chargement...</ul>
+  </div>
+
+  <!-- Onglet : Remboursements -->
+    <div id="settlement-tab" class="tab">
+        <h2>Remboursements par dépense</h2>
+        <label for="settlement-select">Choisir une dépense :</label>
+        <select id="settlement-select">
+            <option disabled selected>Chargement...</option>
+        </select>
+        <ul id="settlement-results"></ul>
+    </div>
+
 
     <script>
         const token = localStorage.getItem('jwt');
         const groupId = {{ groupId }};
+        let rawExpenses = [];
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        }
 
         if (!token) {
             window.location.href = '/login';
         } else {
             Promise.all([
-                fetch(`http://localhost:49162/api/groups/${groupId}`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                }).then(r => r.json()),
-
-                fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                }).then(r => r.json()),
-
-                fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                }).then(r => r.json()),
-
-                fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                }).then(r => r.json()),
-
-                fetch(`http://localhost:49162/api/groups/${groupId}/balances`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                }).then(r => r.json())
+            fetch(`http://localhost:49162/api/groups/${groupId}`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
+            fetch(`http://localhost:49162/api/groups/${groupId}/role`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
+            fetch(`http://localhost:49162/api/groups/${groupId}/members`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
+            fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
+            fetch(`http://localhost:49162/api/groups/${groupId}/balances`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json())
             ])
             .then(([group, role, members, expenses, balances]) => {
-                // Infos groupe
-                document.getElementById('group-info').innerHTML = `
-                    <h2>${group.name}</h2>
-                    <p>Créé le : ${group.createdAt}</p>
-                    <p>Créé par : ${group.createdBy.username} (${group.createdBy.email})</p>
-                `;
+            // Infos groupe
+            document.getElementById('group-info').innerHTML = `
+                <h2>${group.name}</h2>
+                <p>Créé le : ${group.createdAt}</p>
+                <p>Créé par : ${group.createdBy.username} (${group.createdBy.email})</p>
+            `;
+            document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${role.role}`;
+            document.getElementById('group-members').innerHTML = `
+                <h3>Membres :</h3>
+                <ul>${members.map(m => `<li><strong>${m.username}</strong> (${m.email}) – <em>${m.role}</em></li>`).join('')}</ul>
+            `;
 
-                // Rôle
-                document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${role.role}`;
+            // Dépenses
+            rawExpenses = expenses;
+            renderExpenses(expenses);
 
-                // Membres
-                const memberHTML = members.map(m => `<li><strong>${m.username}</strong> (${m.email}) - <em>${m.role}</em></li>`).join('');
-                document.getElementById('group-members').innerHTML = `<h3>Membres :</h3><ul>${memberHTML}</ul>`;
+            // Soldes
+            document.getElementById('group-balances').innerHTML = Object.entries(balances).map(
+                ([uid, solde]) => `<li>Utilisateur #${uid} : ${parseFloat(solde).toFixed(2)} €</li>`
+            ).join('');
 
-                // Dépenses
-                const expenseContainer = document.getElementById('group-expenses');
-                if (!expenses.length) {
-                    expenseContainer.innerHTML = '<h3>Aucune dépense pour ce groupe.</h3>';
-                } else {
-                    const expenseHTML = expenses.map(e => `
-                        <li>
-                            <strong>${e.title}</strong> - ${e.amount} €<br>
-                            Catégorie : ${e.category}<br>
-                            Date : ${e.date}<br>
-                            Payé par : ${e.paidBy}<br>
-                            Participants : ${e.concernedUsers.join(', ')}
-                        </li><br>
-                    `).join('');
-                    expenseContainer.innerHTML = `<h3>Dépenses :</h3><ul>${expenseHTML}</ul>`;
-                }
+            // Remplir le select des dépenses pour remboursements
+            const settlementSelect = document.getElementById('settlement-select');
+            const settlementResults = document.getElementById('settlement-results');
 
-                // Soldes
-                const balanceHTML = Object.entries(balances).map(
-                    ([userId, balance]) => `<li>User ID ${userId} : ${parseFloat(balance).toFixed(2)} €</li>`
-                ).join('');
-                document.getElementById('group-balances').innerHTML = `<h3>Soldes :</h3><ul>${balanceHTML}</ul>`;
-            })
-            .catch(error => {
-                console.error("Erreur lors du chargement des infos du groupe :", error);
-                alert("Erreur lors du chargement des données du groupe.");
-            });
-
-            // Soumission d'une nouvelle dépense
-            
-            document.getElementById('expense-form').addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                const form = new FormData();
-                form.append('title', document.getElementById('expense-title').value.trim());
-                form.append('amount', document.getElementById('expense-amount').value);
-                form.append('date', document.getElementById('expense-date').value);
-                form.append('category', document.getElementById('expense-category').value.trim());
-                form.append('group_id', groupId);
-
-                const users = document.getElementById('expense-users').value
-                    .split(',')
-                    .map(id => parseInt(id.trim()))
-                    .filter(Boolean);
-                form.append('concerned_user_ids', JSON.stringify(users));
-
-                const file = document.getElementById('expense-receipt').files[0];
-                if (file) {
-                    form.append('receipt', file);
-                }
-
-                fetch('http://localhost:49162/api/expenses', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    },
-                    body: form
-                }).then(async res => {
-                    const msg = await res.json();
-                    document.getElementById('expense-result').textContent = msg.message || msg.error;
-                    if (res.ok) {
-                        location.reload();
-                    }
+            if (expenses.length === 0) {
+                settlementSelect.innerHTML = `<option disabled>Aucune dépense</option>`;
+            } else {
+                settlementSelect.innerHTML = `<option disabled selected>Choisir une dépense</option>`;
+                expenses.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = `${e.title} – ${e.amount} €`;
+                settlementSelect.appendChild(opt);
                 });
+
+                // Au changement de sélection, afficher remboursements
+                settlementSelect.addEventListener('change', () => {
+                  const expenseId = settlementSelect.value;
+
+                  fetch(`http://localhost:49162/api/expenses/${expenseId}/settlements`, {
+                    headers: {
+                      'Authorization': 'Bearer ' + token
+                    }
+                  })
+                  .then(res => res.json())
+                  .then(data => {
+                    const container = document.getElementById('settlement-results');
+
+                    if (!data.settlements || !data.settlements.length) {
+                      container.innerHTML = '<li>Aucun remboursement à effectuer pour cette dépense.</li>';
+                      return;
+                    }
+
+                    const settlementsHTML = data.settlements.map(s => {
+                      const fromUser = s.from;
+                      const toUser = s.to;
+                      return `<li>L'utilisateur #${fromUser} doit <strong>${s.amount.toFixed(2)} €</strong> à l'utilisateur #${toUser}</li>`;
+                    }).join('');
+
+                    container.innerHTML = `
+                      <h4>Remboursements pour la dépense : <em>${data.expense.title}</em></h4>
+                      <ul>${settlementsHTML}</ul>
+                      <p><strong>Payé par :</strong> ${data.expense.paid_by} | <strong>Montant total :</strong> ${data.expense.amount.toFixed(2)} €</p>
+                    `;
+                  })
+                  .catch(error => {
+                    console.error("Erreur :", error);
+                    document.getElementById('settlement-results').innerHTML = '<li>Erreur lors du chargement des remboursements.</li>';
+                  });
+                });
+
+
+            }
             });
 
+            function renderExpenses(expenses) {
+            const list = document.getElementById('group-expenses');
+            if (!expenses.length) {
+                list.innerHTML = '<li>Aucune dépense.</li>';
+                return;
+            }
+            list.innerHTML = expenses.map(e => `
+                <li>
+                <strong>${e.title}</strong> – ${e.amount} €<br>
+                Catégorie : ${e.category} | Date : ${e.date}<br>
+                Payé par : ${e.paidBy}<br>
+                Participants : ${e.concernedUsers.join(', ')}
+                </li><br>
+            `).join('');
+            }
 
+            document.getElementById('sort-expenses').addEventListener('change', e => {
+            const sorted = [...rawExpenses];
+            const by = e.target.value;
+            sorted.sort((a, b) => {
+                if (by === 'amount') return b.amount - a.amount;
+                if (by === 'paidBy') return a.paidBy.localeCompare(b.paidBy);
+                if (by === 'date') return new Date(b.date) - new Date(a.date);
+                return 0;
+            });
+            renderExpenses(sorted);
+            });
+
+            document.getElementById('expense-form').addEventListener('submit', e => {
+            e.preventDefault();
+
+            const form = new FormData();
+            form.append('title', document.getElementById('expense-title').value.trim());
+            form.append('amount', document.getElementById('expense-amount').value);
+            form.append('date', document.getElementById('expense-date').value);
+            form.append('category', document.getElementById('expense-category').value.trim());
+            form.append('group_id', groupId);
+
+            const users = document.getElementById('expense-users').value
+                .split(',').map(id => parseInt(id.trim())).filter(Boolean);
+            form.append('concerned_user_ids', JSON.stringify(users));
+
+            const file = document.getElementById('expense-receipt').files[0];
+            if (file) form.append('receipt', file);
+
+            fetch('http://localhost:49162/api/expenses', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: form
+            }).then(async res => {
+                const msg = await res.json();
+                document.getElementById('expense-result').textContent = msg.message || msg.error;
+                if (res.ok) location.reload();
+            });
+            });
         }
     </script>
 
