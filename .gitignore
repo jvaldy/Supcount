@@ -47,3 +47,4 @@ app/db/       # ton volume MySQL complet (pas à la racine, mais dans /app)
 **/node_modules/
 **/dist/
 app/backend/public/uploads/receipts/
+app/backend/migrations/

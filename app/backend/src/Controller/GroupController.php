@@ -15,6 +15,7 @@ use Symfony\Component\Security\Core\Security;
 use App\Repository\UserRepository;
 
 
+
 class GroupController extends AbstractController
 {
     #[Route('/api/groups', name: 'create_group', methods: ['POST'])]
@@ -114,8 +115,7 @@ class GroupController extends AbstractController
         UserRepository $userRepository, 
         EntityManagerInterface $em, 
         Security $security
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $currentUser = $security->getUser();
 
         if ($group->getCreatedBy() !== $currentUser) {
@@ -124,11 +124,13 @@ class GroupController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
-        if (!isset($data['user_id'])) {
-            return $this->json(['error' => 'ID de l\'utilisateur requis.'], 400);
+        if (isset($data['user_id'])) {
+            $userToAdd = $userRepository->find($data['user_id']);
+        } elseif (isset($data['email'])) {
+            $userToAdd = $userRepository->findOneBy(['email' => $data['email']]);
+        } else {
+            return $this->json(['error' => 'Données manquantes.'], 400);
         }
-
-        $userToAdd = $userRepository->find($data['user_id']);
 
         if (!$userToAdd) {
             return $this->json(['error' => 'Utilisateur non trouvé.'], 404);
@@ -142,42 +144,55 @@ class GroupController extends AbstractController
         $em->persist($group);
         $em->flush();
 
-        return $this->json(['message' => 'Utilisateur ajouté avec succès au groupe.'], 201);
+        return $this->json(['message' => 'Utilisateur ajouté au groupe avec succès.'], 201);
     }
+
 
     #[Route('/api/groups/{id}/remove-member', name: 'remove_member_from_group', methods: ['POST'])]
     public function removeMemberFromGroup(
         Group $group,
         Request $request,
-        UserRepository $userRepository,
         EntityManagerInterface $em,
-        Security $security
-    ): JsonResponse
-    {
+        Security $security,
+        UserRepository $userRepo,
+        ExpenseRepository $expenseRepo
+    ): JsonResponse {
         $currentUser = $security->getUser();
 
         if ($group->getCreatedBy() !== $currentUser) {
-            return $this->json(['error' => 'Seul le créateur peut retirer des membres.'], 403);
+            return $this->json(['error' => 'Seul le créateur peut retirer un membre.'], 403);
         }
 
         $data = json_decode($request->getContent(), true);
-
         if (!isset($data['user_id'])) {
-            return $this->json(['error' => 'ID de l\'utilisateur requis.'], 400);
+            return $this->json(['error' => 'ID de l’utilisateur requis.'], 400);
         }
 
-        $userToRemove = $userRepository->find($data['user_id']);
-
-        if (!$userToRemove || !$group->getMembers()->contains($userToRemove)) {
-            return $this->json(['error' => 'Utilisateur non trouvé ou pas membre.'], 404);
+        $userToRemove = $userRepo->find($data['user_id']);
+        if (!$userToRemove) {
+            return $this->json(['error' => 'Utilisateur introuvable.'], 404);
         }
 
+        if (!$group->getMembers()->contains($userToRemove)) {
+            return $this->json(['error' => 'Cet utilisateur ne fait pas partie du groupe.'], 400);
+        }
+
+        // ✅ Supprimer de la liste des membres
         $group->removeMember($userToRemove);
-        $em->persist($group);
+
+        // ✅ Supprimer des concernedUsers dans toutes les dépenses du groupe
+        $expenses = $expenseRepo->findBy(['group' => $group]);
+        foreach ($expenses as $expense) {
+            if ($expense->getConcernedUsers()->contains($userToRemove)) {
+                $expense->removeConcernedUser($userToRemove);
+            }
+        }
+
         $em->flush();
 
-        return $this->json(['message' => 'Utilisateur retiré du groupe.'], 200);
+        return $this->json(['message' => 'Membre supprimé du groupe et des dépenses associées.']);
     }
+
 
 
     #[Route('/api/groups/{id}/members', name: 'list_group_members', methods: ['GET'])]

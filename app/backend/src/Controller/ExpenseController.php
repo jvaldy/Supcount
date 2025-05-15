@@ -264,6 +264,77 @@ class ExpenseController extends AbstractController
 
 
 
+    #[Route('/api/expenses/{id}/participants', name: 'update_expense_participants', methods: ['PUT'])]
+    public function updateConcernedUsers(
+        Expense $expense,
+        Request $request,
+        EntityManagerInterface $em,
+        Security $security,
+        UserRepository $userRepository
+    ): JsonResponse {
+        $user = $security->getUser();
+        $group = $expense->getGroup();
+
+        if (!$group->getMembers()->contains($user)) {
+            return $this->json(['error' => 'Accès refusé.'], 403);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['concerned_user_ids']) || !is_array($data['concerned_user_ids'])) {
+            return $this->json(['error' => 'Liste des utilisateurs requise.'], 400);
+        }
+
+        $expense->getConcernedUsers()->clear();
+
+        foreach ($data['concerned_user_ids'] as $userId) {
+            $participant = $userRepository->find($userId);
+            if ($participant && $group->getMembers()->contains($participant)) {
+                $expense->addConcernedUser($participant);
+            }
+        }
+
+        $em->flush();
+
+        return $this->json(['message' => 'Participants mis à jour avec succès.'], 200);
+    }
+
+
+
+
+    #[Route('/api/expenses/{id}/edit', name: 'edit_expense_details', methods: ['PUT'])]
+    public function editExpenseDetails(
+        Expense $expense,
+        Request $request,
+        Security $security,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $user = $security->getUser();
+
+        if ($expense->getPaidBy() !== $user && !$expense->getGroup()->getMembers()->contains($user)) {
+            return $this->json(['error' => 'Accès refusé.'], 403);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (isset($data['title'])) {
+            $expense->setTitle($data['title']);
+        }
+
+        if (isset($data['amount'])) {
+            $expense->setAmount($data['amount']);
+        }
+
+        if (isset($data['category'])) {
+            $expense->setCategory($data['category']);
+        }
+
+        $em->flush();
+
+        return $this->json(['message' => 'Dépense mise à jour avec succès.']);
+    }
+
+
 
 
 }

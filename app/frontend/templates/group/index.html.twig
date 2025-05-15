@@ -27,6 +27,12 @@
   <div id="info-tab" class="tab active">
     <section id="group-info">Chargement des infos du groupe...</section>
     <section id="group-role"></section>
+    <section id="group-add-members">
+      <h4>Ajouter un membre</h4>
+      <input type="text" id="new-member-id" placeholder="ID utilisateur ou email">
+      <button id="add-member-btn">Ajouter</button>
+      <p id="add-member-result"></p>
+    </section>
     <section id="group-members"></section>
   </div>
 
@@ -64,17 +70,47 @@
   </div>
 
   <!-- Onglet : Remboursements -->
-    <div id="settlement-tab" class="tab">
-        <h2>Remboursements par dépense</h2>
-        <label for="settlement-select">Choisir une dépense :</label>
-        <select id="settlement-select">
-            <option disabled selected>Chargement...</option>
-        </select>
-        <ul id="settlement-results"></ul>
-    </div>
+  <div id="settlement-tab" class="tab">
+      <h2>Remboursements par dépense</h2>
+      <label for="settlement-select">Choisir une dépense :</label>
+      <select id="settlement-select">
+          <option disabled selected>Chargement...</option>
+      </select>
+      <ul id="settlement-results"></ul>
+  </div>
+
+  <!-- À mettre n'importe où dans le body -->
+  <div id="edit-modal" style="display: none; border: 1px solid black; padding: 10px;">
+    <h4>Modifier les participants</h4>
+    <form id="edit-form">
+      <div id="edit-checkbox-list">Chargement...</div>
+      <input type="hidden" id="edit-expense-id">
+      <button type="submit">Enregistrer</button>
+      <button type="button" onclick="closeEditModal()">Annuler</button>
+    </form>
+  </div>
+
+
+
+
+  <div id="edit-expense-modal" style="display:none; border:1px solid #000; padding:10px;">
+  <h3>Modifier la dépense</h3>
+  <form id="edit-expense-form">
+    <input type="hidden" id="edit-expense-id">
+    <input type="text" id="edit-expense-title" placeholder="Titre">
+    <input type="number" id="edit-expense-amount" placeholder="Montant">
+    <input type="text" id="edit-expense-category" placeholder="Catégorie">
+    <button type="submit">💾 Sauvegarder</button>
+    <button type="button" onclick="closeEditExpenseModal()">❌ Annuler</button>
+  </form>
+</div>
+
+
+
 
 
     <script>
+    
         const token = localStorage.getItem('jwt');
         const groupId = {{ groupId }};
         let rawExpenses = [];
@@ -84,15 +120,54 @@
             document.getElementById(tabId).classList.add('active');
         }
 
+        function closeEditModal() {
+          document.getElementById('edit-modal').style.display = 'none';
+        }
+
+
+        function handleAuthError(response) {
+          if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('jwt');
+            window.location.href = '/login';
+            return true;
+          }
+          return false;
+        }
+
         if (!token) {
             window.location.href = '/login';
         } else {
             Promise.all([
-            fetch(`http://localhost:49162/api/groups/${groupId}`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
-            fetch(`http://localhost:49162/api/groups/${groupId}/role`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
-            fetch(`http://localhost:49162/api/groups/${groupId}/members`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
-            fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json()),
-            fetch(`http://localhost:49162/api/groups/${groupId}/balances`, { headers: { 'Authorization': 'Bearer ' + token }}).then(r => r.json())
+              fetch(`http://localhost:49162/api/groups/${groupId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              }).then(res => {
+                if (handleAuthError(res)) return;
+                return res.json();
+              }),
+              fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              }).then(res => {
+                if (handleAuthError(res)) return;
+                return res.json();
+              }),
+              fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              }).then(res => {
+                if (handleAuthError(res)) return;
+                return res.json();
+              }),
+              fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              }).then(res => {
+                if (handleAuthError(res)) return;
+                return res.json();
+              }),
+              fetch(`http://localhost:49162/api/groups/${groupId}/balances`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              }).then(res => {
+                if (handleAuthError(res)) return;
+                return res.json();
+              })
             ])
             .then(([group, role, members, expenses, balances]) => {
             // Infos groupe
@@ -104,8 +179,50 @@
             document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${role.role}`;
             document.getElementById('group-members').innerHTML = `
                 <h3>Membres :</h3>
-                <ul>${members.map(m => `<li><strong>${m.username}</strong> (${m.email}) – <em>${m.role}</em></li>`).join('')}</ul>
+                <ul>
+                  ${members.map(m => {
+                    const isCreator = m.role === 'créateur';
+                    const deleteButton = isCreator ? '' : `<button onclick="removeMember(${m.id})">❌</button>`;
+                    return `<li><strong>${m.username}</strong> (${m.email}) – <em>${m.role}</em> ${deleteButton}</li>`;
+                  }).join('')}
+                </ul>
+
             `;
+            document.getElementById('add-member-btn').addEventListener('click', () => {
+              const input = document.getElementById('new-member-id');
+              const value = input.value.trim();
+              const result = document.getElementById('add-member-result');
+
+              if (!value) {
+                result.textContent = 'Veuillez entrer un ID ou un email.';
+                return;
+              }
+
+              // Tente de deviner si c’est un ID numérique ou un email
+              const isEmail = value.includes('@');
+              const body = isEmail ? { email: value } : { user_id: parseInt(value) };
+
+              fetch(`http://localhost:49162/api/groups/${groupId}/add-member`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ' + token,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+              })
+              .then(async res => {
+                if (handleAuthError(res)) return;
+                const data = await res.json();
+                result.textContent = data.message || data.error;
+                if (res.ok) {
+                  location.reload();
+                }
+              })
+              .catch(() => {
+                result.textContent = "Erreur lors de l’ajout du membre.";
+              });
+            });
+
 
             // Dépenses
             rawExpenses = expenses;
@@ -171,21 +288,70 @@
             }
             });
 
+            function removeMember(userId) {
+              if (!confirm("Confirmer la suppression de ce membre du groupe ?")) return;
+
+              fetch(`http://localhost:49162/api/groups/${groupId}/remove-member`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ' + token,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: userId })
+              })
+              .then(res => res.json())
+              .then(data => {
+                alert(data.message || data.error);
+                location.reload();
+              })
+              .catch(() => alert("Erreur lors de la suppression du membre."));
+            }
+
+
+            function deleteExpense(expenseId) {
+              if (!confirm("Supprimer définitivement cette dépense ?")) return;
+
+              fetch(`http://localhost:49162/api/expenses/${expenseId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': 'Bearer ' + token
+                }
+              })
+              .then(async res => {
+                if (handleAuthError(res)) return;
+                const msg = await res.json();
+                alert(msg.message || msg.error);
+                if (res.ok) location.reload();
+              })
+              .catch(() => alert("Erreur lors de la suppression de la dépense."));
+            }
+
+
+
             function renderExpenses(expenses) {
-            const list = document.getElementById('group-expenses');
-            if (!expenses.length) {
-                list.innerHTML = '<li>Aucune dépense.</li>';
-                return;
+              const list = document.getElementById('group-expenses');
+              if (!expenses.length) {
+                  list.innerHTML = '<li>Aucune dépense.</li>';
+                  return;
+              }
+              list.innerHTML = expenses.map(e => `
+                  <li>
+                    <strong>${e.title}</strong> – ${e.amount} €<br>
+                    Catégorie : ${e.category} | Date : ${e.date}<br>
+                    Payé par : ${e.paidBy}<br>
+                    Participants : ${e.concernedUsers.join(', ')}
+                    <br><button onclick="openEditExpenseModal(${e.id}, '${e.title}', '${e.amount}', '${e.category}')">✏️ Modifier infos</button>
+                    <br><button onclick="editParticipants(${e.id})">✏️ Modifier participants</button>
+                    <br><button onclick="deleteExpense(${e.id})">🗑️ Supprimer</button>
+                  </li><br>
+              `).join('');
             }
-            list.innerHTML = expenses.map(e => `
-                <li>
-                <strong>${e.title}</strong> – ${e.amount} €<br>
-                Catégorie : ${e.category} | Date : ${e.date}<br>
-                Payé par : ${e.paidBy}<br>
-                Participants : ${e.concernedUsers.join(', ')}
-                </li><br>
-            `).join('');
-            }
+
+
+            
+
+
+
 
             document.getElementById('sort-expenses').addEventListener('change', e => {
             const sorted = [...rawExpenses];
@@ -226,7 +392,106 @@
                 if (res.ok) location.reload();
             });
             });
+
+
+          document.getElementById('edit-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const expenseId = document.getElementById('edit-expense-id').value;
+            const checkedBoxes = [...document.querySelectorAll('input[name="participants"]:checked')];
+            const participantIds = checkedBoxes.map(cb => parseInt(cb.value));
+
+            const res = await fetch(`http://localhost:49162/api/expenses/${expenseId}/participants`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ concerned_user_ids: participantIds })
+            });
+
+            const msg = await res.json();
+            alert(msg.message || msg.error);
+            if (res.ok) {
+              closeEditModal();
+              location.reload();
+            }
+          });
+
+
+
         }
+
+
+
+
+      async function editParticipants(expenseId) {
+        document.getElementById('edit-expense-id').value = expenseId;
+
+        const [members, expense] = await Promise.all([
+          fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          }).then(r => r.json()),
+          fetch(`http://localhost:49162/api/expenses/${expenseId}`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          }).then(r => r.json())
+        ]);
+
+        const checkboxList = document.getElementById('edit-checkbox-list');
+        checkboxList.innerHTML = members.map(user => {
+          const checked = expense.concernedUsers.includes(user.id) ? 'checked' : '';
+          return `
+            <label>
+              <input type="checkbox" name="participants" value="${user.id}" ${checked}>
+              ${user.username} (${user.email})
+            </label><br>`;
+        }).join('');
+
+        document.getElementById('edit-modal').style.display = 'block';
+      }
+
+
+      function openEditExpenseModal(id, title, amount, category) {
+        document.getElementById('edit-expense-id').value = id;
+        document.getElementById('edit-expense-title').value = title;
+        document.getElementById('edit-expense-amount').value = amount;
+        document.getElementById('edit-expense-category').value = category;
+        document.getElementById('edit-expense-modal').style.display = 'block';
+      }
+
+      function closeEditExpenseModal() {
+        document.getElementById('edit-expense-modal').style.display = 'none';
+      }
+
+      document.getElementById('edit-expense-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const id = document.getElementById('edit-expense-id').value;
+        const title = document.getElementById('edit-expense-title').value.trim();
+        const amount = document.getElementById('edit-expense-amount').value;
+        const category = document.getElementById('edit-expense-category').value.trim();
+
+        const res = await fetch(`http://localhost:49162/api/expenses/${id}/edit`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ title, amount, category })
+        });
+
+        const msg = await res.json();
+        alert(msg.message || msg.error);
+        if (res.ok) {
+          closeEditExpenseModal();
+          location.reload();
+        }
+      });
+
+
+
+
+
     </script>
 
 </body>
