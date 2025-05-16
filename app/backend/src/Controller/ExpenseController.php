@@ -177,7 +177,7 @@ class ExpenseController extends AbstractController
     }
 
     #[Route('/api/expenses/{id}/settlements', name: 'expense_settlements', methods: ['GET'])]
-    public function getExpenseSettlements(Expense $expense, Security $security): JsonResponse
+    public function getExpenseSettlements(Expense $expense, Security $security, UserRepository $userRepository): JsonResponse
     {
         $user = $security->getUser();
         $group = $expense->getGroup();
@@ -237,10 +237,17 @@ class ExpenseController extends AbstractController
                 $payment = min($debtAmount, $creditAmount);
 
                 $settlements[] = [
-                    'from' => $debtorId,
-                    'to' => $creditorId,
+                    'from' => [
+                        'id' => $debtorId,
+                        'username' => $userRepository->find($debtorId)?->getUsername() ?? "Utilisateur #$debtorId"
+                    ],
+                    'to' => [
+                        'id' => $creditorId,
+                        'username' => $userRepository->find($creditorId)?->getUsername() ?? "Utilisateur #$creditorId"
+                    ],
                     'amount' => round($payment, 2),
                 ];
+
 
                 $debtors[$debtorId] -= $payment;
                 $creditors[$creditorId] -= $payment;

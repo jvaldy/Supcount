@@ -14,6 +14,14 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Security;
 use App\Repository\UserRepository;
 
+use Dompdf\Dompdf;
+use Dompdf\Options;
+
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\Response;
+
+
 
 
 class GroupController extends AbstractController
@@ -279,5 +287,143 @@ class GroupController extends AbstractController
 
         return $this->json($balances, 200);
     }
+
+
+
+    #[Route('/api/groups/{id}/export/csv', name: 'export_group_csv', methods: ['GET'])]
+    public function exportCsv(Group $group, Security $security, ExpenseRepository $repo): Response
+    {
+        $user = $security->getUser();
+        if (!$group->getMembers()->contains($user)) {
+            return new Response('Accès refusé', 403);
+        }
+
+        $expenses = $repo->findBy(['group' => $group]);
+
+        // Buffer d'écriture
+        $output = fopen('php://temp', 'r+');
+
+        // UTF-8 BOM pour Excel
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        // En-tête CSV
+        fputcsv($output, ['Titre', 'Montant', 'Date', 'Catégorie', 'Payé par', 'Participants'], ';');
+
+        foreach ($expenses as $e) {
+            $participants = array_map(fn(User $u) => $u->getUsername(), $e->getConcernedUsers()->toArray());
+            $row = [
+                $e->getTitle(),
+                number_format($e->getAmount(), 2, '.', ''),
+                $e->getDate()->format('Y-m-d'),
+                $e->getCategory(),
+                $e->getPaidBy()->getUsername(),
+                implode(', ', $participants)
+            ];
+            fputcsv($output, $row, ';');
+        }
+
+        rewind($output);
+        $csvContent = stream_get_contents($output);
+        fclose($output);
+
+        return new Response($csvContent, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="depenses_' . $group->getName() . '.csv"',
+        ]);
+    }
+
+
+
+
+
+
+   
+
+    #[Route('/api/groups/{id}/export/pdf', name: 'export_group_pdf', methods: ['GET'])]
+    public function exportGroupPdf(Group $group, Security $security, ExpenseRepository $repo): Response
+    {
+        $user = $security->getUser();
+        if (!$group->getMembers()->contains($user)) {
+            return new Response('Accès refusé', 403);
+        }
+
+        $expenses = $repo->findBy(['group' => $group]);
+
+        $html = '
+            <style>
+            body { font-family: DejaVu Sans, sans-serif; font-size: 12px; }
+            h1 { text-align: center; color: #333; }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th {
+                background-color: #f2f2f2;
+                border: 1px solid #999;
+                padding: 8px;
+                text-align: left;
+            }
+            td {
+                border: 1px solid #ccc;
+                padding: 8px;
+            }
+            tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+            </style>
+
+            <h1>Dépenses du groupe "' . htmlspecialchars($group->getName()) . '"</h1>
+
+            <table>
+            <thead>
+                <tr>
+                <th>Titre</th>
+                <th>Montant</th>
+                <th>Date</th>
+                <th>Catégorie</th>
+                <th>Payé par</th>
+                <th>Participants</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+            foreach ($expenses as $e) {
+                $participants = array_map(fn(User $u) => $u->getUsername(), $e->getConcernedUsers()->toArray());
+                $participantStr = implode(', ', $participants);
+
+                $html .= '<tr>';
+                $html .= '<td>' . htmlspecialchars($e->getTitle()) . '</td>';
+                $html .= '<td>' . number_format($e->getAmount(), 2, ',', ' ') . ' €</td>';
+                $html .= '<td>' . $e->getDate()->format('d/m/Y') . '</td>';
+                $html .= '<td>' . htmlspecialchars($e->getCategory()) . '</td>';
+                $html .= '<td>' . htmlspecialchars($e->getPaidBy()->getUsername()) . '</td>';
+                $html .= '<td>' . htmlspecialchars($participantStr) . '</td>';
+                $html .= '</tr>';
+            }
+
+            $html .= '</tbody></table>';
+
+            $date = new \DateTime('now', new \DateTimeZone('Europe/Paris'));
+
+            $html .= '<p style="margin-top: 40px; font-size: 10px; color: #666; text-align: right;">
+            Exporté le ' . $date->format('d/m/Y H:i') . ' sur SUPCOUNT
+            </p>';
+
+
+
+        $dompdf = new Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->render();
+
+        return new Response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="depenses '. htmlspecialchars($group->getName()) .'.pdf"',
+        ]);
+    }
+
+
+
+
 
 }

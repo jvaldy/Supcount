@@ -60,6 +60,13 @@
       <option value="amount">Montant</option>
       <option value="paidBy">Payé par</option>
     </select>
+
+    <div style="margin-bottom: 15px;">
+      <button onclick="downloadPdf()">📥 Télécharger PDF</button>
+      <button onclick="downloadCsv()">📥 Télécharger en CSV</button>
+    </div>
+
+
     <ul id="group-expenses">Chargement...</ul>
   </div>
 
@@ -229,9 +236,14 @@
             renderExpenses(expenses);
 
             // Soldes
-            document.getElementById('group-balances').innerHTML = Object.entries(balances).map(
-                ([uid, solde]) => `<li>Utilisateur #${uid} : ${parseFloat(solde).toFixed(2)} €</li>`
-            ).join('');
+            const balanceList = Object.entries(balances).map(([uid, solde]) => {
+              const member = members.find(m => m.id == uid);
+              const name = member ? member.username : `Utilisateur #${uid}`;
+              return `<li>${name} : ${parseFloat(solde).toFixed(2)} €</li>`;
+            }).join('');
+
+            document.getElementById('group-balances').innerHTML = `<ul>${balanceList}</ul>`;
+
 
             // Remplir le select des dépenses pour remboursements
             const settlementSelect = document.getElementById('settlement-select');
@@ -267,10 +279,11 @@
                     }
 
                     const settlementsHTML = data.settlements.map(s => {
-                      const fromUser = s.from;
-                      const toUser = s.to;
-                      return `<li>L'utilisateur #${fromUser} doit <strong>${s.amount.toFixed(2)} €</strong> à l'utilisateur #${toUser}</li>`;
+                      const fromName = s.from.username || `Utilisateur #${s.from.id}`;
+                      const toName = s.to.username || `Utilisateur #${s.to.id}`;
+                      return `<li>${fromName} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toName}</li>`;
                     }).join('');
+
 
                     container.innerHTML = `
                       <h4>Remboursements pour la dépense : <em>${data.expense.title}</em></h4>
@@ -334,18 +347,137 @@
                   list.innerHTML = '<li>Aucune dépense.</li>';
                   return;
               }
-              list.innerHTML = expenses.map(e => `
+              
+
+              list.innerHTML = expenses.map(e => {
+                const receiptLink = e.receipt 
+                  ? `<a href="http://localhost:49162/uploads/receipts/${e.receipt}" target="_blank">📎 Justificatif</a>` 
+                  : '';
+
+                return `
                   <li>
                     <strong>${e.title}</strong> – ${e.amount} €<br>
                     Catégorie : ${e.category} | Date : ${e.date}<br>
                     Payé par : ${e.paidBy}<br>
-                    Participants : ${e.concernedUsers.join(', ')}
+                    Participants : ${e.concernedUsers.join(', ')}<br>
+                    <br>${e.receipt ? `<a href="http://localhost:49162/uploads/receipts/${e.receipt}" target="_blank">📎 Voir justificatif</a>` : ''}
                     <br><button onclick="openEditExpenseModal(${e.id}, '${e.title}', '${e.amount}', '${e.category}')">✏️ Modifier infos</button>
                     <br><button onclick="editParticipants(${e.id})">✏️ Modifier participants</button>
                     <br><button onclick="deleteExpense(${e.id})">🗑️ Supprimer</button>
+                    ${receiptLink}
                   </li><br>
-              `).join('');
+                `;
+              }).join('');
+
+
             }
+
+
+
+
+
+
+            function downloadPdf() {
+              const token = localStorage.getItem('jwt');
+              if (!token) return window.location.href = '/login';
+
+              // 1. On récupère d'abord le nom du groupe
+              fetch(`http://localhost:49162/api/groups/${groupId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              })
+              .then(res => {
+                if (res.status === 401) {
+                  localStorage.removeItem('jwt');
+                  window.location.href = '/login';
+                  return;
+                }
+                return res.json();
+              })
+              .then(group => {
+                if (!group) return;
+
+                // 2. Ensuite on télécharge le PDF
+                fetch(`http://localhost:49162/api/groups/${groupId}/export/pdf`, {
+                  headers: { 'Authorization': 'Bearer ' + token }
+                })
+                .then(res => {
+                  if (res.status === 401) {
+                    localStorage.removeItem('jwt');
+                    window.location.href = '/login';
+                    return;
+                  }
+                  return res.blob();
+                })
+                .then(blob => {
+                  if (!blob) return;
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  const safeGroupName = group.name.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+                  link.href = url;
+                  link.download = `depenses_${safeGroupName}.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                });
+              })
+              .catch(err => {
+                console.error("Erreur lors de l’export PDF :", err);
+                alert("Impossible de télécharger le PDF.");
+              });
+            }
+
+
+
+            function downloadCsv() {
+              const token = localStorage.getItem('jwt');
+              if (!token) return window.location.href = '/login';
+
+              // 1. On récupère le nom du groupe
+              fetch(`http://localhost:49162/api/groups/${groupId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+              })
+              .then(res => {
+                if (res.status === 401) {
+                  localStorage.removeItem('jwt');
+                  window.location.href = '/login';
+                  return;
+                }
+                return res.json();
+              })
+              .then(group => {
+                if (!group) return;
+
+                // 2. Télécharger le CSV
+                fetch(`http://localhost:49162/api/groups/${groupId}/export/csv`, {
+                  headers: { 'Authorization': 'Bearer ' + token }
+                })
+                .then(res => {
+                  if (res.status === 401) {
+                    localStorage.removeItem('jwt');
+                    window.location.href = '/login';
+                    return;
+                  }
+                  return res.blob();
+                })
+                .then(blob => {
+                  if (!blob) return;
+
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  const safeGroupName = group.name.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+                  link.href = url;
+                  link.download = `depenses_${safeGroupName}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                });
+              })
+              .catch(err => {
+                console.error("Erreur CSV :", err);
+                alert("Impossible de télécharger le CSV.");
+              });
+            }
+
 
 
             
