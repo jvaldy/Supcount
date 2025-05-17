@@ -10,6 +10,14 @@
     <p id="user-info">Chargement des données utilisateur...</p>
     <button id="logout">Déconnexion</button>
 
+    <h2>📊 Mes statistiques de dépenses</h2>
+    <div id="stats-total">Chargement...</div>
+    <div id="stats-by-category"></div>
+    <div id="stats-by-month"></div>
+    <div id="stats-by-group"></div>
+    <hr>
+
+
     <h2>Créer un nouveau groupe</h2>
     <input type="text" id="new-group-name" placeholder="Nom du groupe">
     <button id="create-group">Créer le groupe</button>
@@ -36,6 +44,8 @@
                 document.getElementById('user-info').textContent =
                     `Connecté en tant que : ${user.username} (${user.email})`;
                 loadGroups();
+                loadStatistics();
+
             } else {
                 localStorage.removeItem('jwt');
                 window.location.href = '/login';
@@ -164,6 +174,44 @@
         localStorage.removeItem('jwt');
         window.location.href = '/login';
     });
+
+    function loadStatistics() {
+        fetch('http://localhost:49162/api/statistics', {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(res => res.json())
+        .then(stats => {
+            // Total
+            document.getElementById('stats-total').innerHTML = `<strong>Total :</strong> ${parseFloat(stats.total).toFixed(2)} €`;
+
+            // Par catégorie
+            const catHtml = Object.entries(stats.byCategory).map(
+                ([cat, val]) => `<li>${cat} : ${parseFloat(val).toFixed(2)} €</li>`
+            ).join('');
+            document.getElementById('stats-by-category').innerHTML = `<h4>Par catégorie :</h4><ul>${catHtml}</ul>`;
+
+            // Par mois
+            const monthHtml = Object.entries(stats.byMonth).map(
+                ([month, val]) => `<li>${month} : ${parseFloat(val).toFixed(2)} €</li>`
+            ).join('');
+            document.getElementById('stats-by-month').innerHTML = `<h4>Par mois :</h4><ul>${monthHtml}</ul>`;
+           
+            // Par groupe
+            const groupHtml = Object.entries(stats.byGroup).map(
+                ([group, val]) => `<li>${group} : ${parseFloat(val).toFixed(2)} €</li>`
+            ).join('');
+            document.getElementById('stats-by-group').innerHTML = `<h4>Par groupe :</h4><ul>${groupHtml}</ul>`;
+
+      
+        })
+        .catch(() => {
+            document.getElementById('stats-total').textContent = 'Erreur de chargement des statistiques.';
+        });
+    }
+
+
 </script>
 
 </body>

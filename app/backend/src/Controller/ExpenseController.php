@@ -342,6 +342,67 @@ class ExpenseController extends AbstractController
         return $this->json(['message' => 'Dépense mise à jour avec succès.']);
     }
 
+    #[Route('/api/statistics', name: 'user_statistics', methods: ['GET'])]
+    public function getUserStatistics(
+        ExpenseRepository $repo,
+        Security $security
+    ): JsonResponse {
+        $user = $security->getUser();
+
+        $expenses = $repo->createQueryBuilder('e')
+            ->leftJoin('e.group', 'g')
+            ->addSelect('g')
+            ->where(':user MEMBER OF e.concernedUsers OR e.paidBy = :user')
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->getResult();
+
+        $total = 0;
+        $byCategory = [];
+        $byMonth = [];
+        $byGroup = [];
+
+        foreach ($expenses as $e) {
+            $amount = (float) $e->getAmount();
+            $isPayer = $e->getPaidBy()->getId() === $user->getId();
+
+            $userShare = 0;
+
+            if ($isPayer) {
+                $userShare = $amount;
+            } elseif ($e->getConcernedUsers()->contains($user)) {
+                $nbParticipants = count($e->getConcernedUsers());
+                if ($nbParticipants > 0) {
+                    $userShare = $amount / $nbParticipants;
+                }
+            }
+
+            if ($userShare === 0) continue;
+
+            $total += $userShare;
+
+            // Par catégorie
+            $cat = $e->getCategory();
+            $byCategory[$cat] = ($byCategory[$cat] ?? 0) + $userShare;
+
+            // Par mois
+            $month = $e->getDate()->format('Y-m');
+            $byMonth[$month] = ($byMonth[$month] ?? 0) + $userShare;
+
+            // Par groupe
+            $groupName = $e->getGroup()->getName();
+            $byGroup[$groupName] = ($byGroup[$groupName] ?? 0) + $userShare;
+        }
+
+
+        return $this->json([
+            'total' => $total,
+            'byCategory' => $byCategory,
+            'byMonth' => $byMonth,
+            'byGroup' => $byGroup
+        ]);
+    }
+
 
 
 
