@@ -351,7 +351,7 @@
 
               list.innerHTML = expenses.map(e => {
                 const receiptLink = e.receipt 
-                  ? `<a href="http://localhost:49162/uploads/receipts/${e.receipt}" target="_blank">📎 Justificatif</a>` 
+                  ? `<br><a href="http://localhost:49162/uploads/receipts/${e.receipt}" target="_blank">📄 Voir le justificatif</a>` 
                   : '';
 
                 return `
@@ -359,12 +359,12 @@
                     <strong>${e.title}</strong> – ${e.amount} €<br>
                     Catégorie : ${e.category} | Date : ${e.date}<br>
                     Payé par : ${e.paidBy}<br>
-                    Participants : ${e.concernedUsers.join(', ')}<br>
-                    <br>${e.receipt ? `<a href="http://localhost:49162/uploads/receipts/${e.receipt}" target="_blank">📎 Voir justificatif</a>` : ''}
+                    Participants : ${e.concernedUsers.join(', ')}
+                    ${receiptLink}
                     <br><button onclick="openEditExpenseModal(${e.id}, '${e.title}', '${e.amount}', '${e.category}')">✏️ Modifier infos</button>
                     <br><button onclick="editParticipants(${e.id})">✏️ Modifier participants</button>
                     <br><button onclick="deleteExpense(${e.id})">🗑️ Supprimer</button>
-                    ${receiptLink}
+                    
                   </li><br>
                 `;
               }).join('');

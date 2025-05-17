@@ -99,6 +99,7 @@ class ExpenseController extends AbstractController
                 'category' => $e->getCategory(),
                 'paidBy' => $e->getPaidBy()->getUsername(),
                 'concernedUsers' => array_map(fn(User $u) => $u->getUsername(), $e->getConcernedUsers()->toArray()),
+                'receipt' => $e->getReceipt(),
             ];
         }, $expenses);
 
