@@ -11,6 +11,8 @@ use Doctrine\ORM\Mapping as ORM;
 use App\Entity\User;
 use App\Entity\Group;
 
+use Doctrine\DBAL\Types\Types;
+
 #[ORM\Entity(repositoryClass: ExpenseRepository::class)]
 class Expense
 {
@@ -45,6 +47,9 @@ class Expense
     #[ORM\ManyToMany(targetEntity: User::class)]
     #[ORM\JoinTable(name: 'expense_concerned_users')]
     private Collection $concernedUsers;
+
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $customShares = null;
 
     public function __construct()
     {
@@ -160,4 +165,19 @@ class Expense
 
         return $this;
     }
+
+
+    public function getCustomShares(): ?array
+    {
+        return $this->customShares;
+    }
+
+    public function setCustomShares(?array $shares): self
+    {
+        $this->customShares = $shares;
+        return $this;
+    }
+
+
+
 }

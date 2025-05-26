@@ -10,7 +10,7 @@ WORKDIR /app
 
 COPY . /app
 
-RUN composer install
+RUN composer install --no-scripts --no-interaction
 
 EXPOSE 8000
 

@@ -237,17 +237,27 @@ class ExpenseController extends AbstractController
 
                 $payment = min($debtAmount, $creditAmount);
 
+                // Affiche le RIB seulement si l'utilisateur connecté est le débiteur
+                $rib = null;
+                if ($debtorId === $user->getId()) {
+                    $creditor = $userRepository->find($creditorId);
+                    $rib = $creditor?->getRib();
+                }
+
                 $settlements[] = [
+                    'id' => uniqid(), // ou un vrai id si tu utilises une entité Reimbursement
                     'from' => [
                         'id' => $debtorId,
-                        'username' => $userRepository->find($debtorId)?->getUsername() ?? "Utilisateur #$debtorId"
+                        'username' => $userRepository->find($debtorId)?->getUsername(),
                     ],
                     'to' => [
                         'id' => $creditorId,
-                        'username' => $userRepository->find($creditorId)?->getUsername() ?? "Utilisateur #$creditorId"
+                        'username' => $userRepository->find($creditorId)?->getUsername(),
                     ],
                     'amount' => round($payment, 2),
+                    'rib' => $rib,
                 ];
+
 
 
                 $debtors[$debtorId] -= $payment;
@@ -403,6 +413,96 @@ class ExpenseController extends AbstractController
         ]);
     }
 
+
+
+
+
+
+
+
+
+    #[Route('/api/expenses/{id}/confirm-settlements', name: 'confirm_settlements', methods: ['POST'])]
+    public function confirmSettlements(
+        Expense $expense,
+        Security $security,
+        EntityManagerInterface $em,
+        UserRepository $userRepo
+    ): JsonResponse {
+        $user = $security->getUser();
+        if ($expense->getPaidBy() !== $user) {
+            return $this->json(['error' => 'Seul le créateur peut valider les remboursements.'], 403);
+        }
+
+        // 💡 Tu réutilises la logique d'équilibrage déjà faite
+        $amount = $expense->getAmount();
+        $payer = $expense->getPaidBy();
+        $concernedUsers = $expense->getConcernedUsers();
+        $shares = $expense->getCustomShares();
+
+        $balances = [];
+        foreach ($concernedUsers as $u) $balances[$u->getId()] = 0;
+        if (!isset($balances[$payer->getId()])) $balances[$payer->getId()] = 0;
+
+        if ($shares) {
+            foreach ($shares as $s) {
+                $balances[$s['user_id']] -= $s['amount'];
+            }
+        } else {
+            $share = $amount / count($concernedUsers);
+            foreach ($concernedUsers as $u) $balances[$u->getId()] -= $share;
+        }
+
+        $balances[$payer->getId()] += $amount;
+
+        $creditors = [];
+        $debtors = [];
+
+        foreach ($balances as $uid => $bal) {
+            if ($bal > 0) $creditors[$uid] = $bal;
+            elseif ($bal < 0) $debtors[$uid] = abs($bal);
+        }
+
+        foreach ($debtors as $from => $debt) {
+            foreach ($creditors as $to => $credit) {
+                if ($debt <= 0) break;
+
+                $pay = min($debt, $credit);
+                $debtors[$from] -= $pay;
+                $creditors[$to] -= $pay;
+
+                $reimb = new \App\Entity\Reimbursement();
+                $reimb->setExpense($expense);
+                $reimb->setFromUser($userRepo->find($from));
+                $reimb->setToUser($userRepo->find($to));
+                $reimb->setAmount($pay);
+
+                $em->persist($reimb);
+            }
+        }
+
+        $em->flush();
+        return $this->json(['message' => 'Remboursements enregistrés.']);
+    }
+
+
+
+    // ---------- REMBOURSEMENTS ----------
+    #[Route('/api/reimbursements/{id}/mark-paid', name: 'mark_reimbursement_paid', methods: ['POST'])]
+    public function markReimbursementPaid(
+        \App\Entity\Reimbursement $reimb,
+        Security $security,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $user = $security->getUser();
+        if ($reimb->getFromUser() !== $user) {
+            return $this->json(['error' => 'Non autorisé.'], 403);
+        }
+
+        $reimb->setIsPaid(true);
+        $em->flush();
+
+        return $this->json(['message' => 'Remboursement confirmé.']);
+    }
 
 
 

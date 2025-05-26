@@ -39,7 +39,13 @@ class LoginController extends AbstractController
             'roles' => $user->getRoles(),
         ];
 
-        $token = $jwtManager->createFromPayload($user, $payload);
+        try {
+             $token = $jwtManager->createFromPayload($user, $payload);
+        } catch (\Throwable $e) {
+            return new JsonResponse([
+                'message' => 'Erreur JWT : ' . $e->getMessage()
+            ], 500);
+        }
 
         return new JsonResponse(['token' => $token]);
     }

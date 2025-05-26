@@ -34,6 +34,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $username = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $rib = null;
+
+
+    
     public function getId(): ?int
     {
         return $this->id;
@@ -120,4 +125,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
+
+
+   
+
+    public function getRib(): ?string
+    {
+        return $this->rib;
+    }
+
+    public function setRib(?string $rib): self
+    {
+        $this->rib = $rib;
+        return $this;
+    }
+
+
+
+
 }

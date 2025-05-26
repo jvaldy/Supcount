@@ -18,6 +18,17 @@
     <hr>
 
 
+
+    <h3>Ajouter mon RIB</h3>
+
+    <p id="rib-display" style="font-weight: bold; color: green;"></p>
+
+    <input type="text" id="rib-input" placeholder="Votre RIB">
+    <button onclick="uploadRib()">Enregistrer le RIB</button>
+
+
+
+
     <h2>Créer un nouveau groupe</h2>
     <input type="text" id="new-group-name" placeholder="Nom du groupe">
     <button id="create-group">Créer le groupe</button>
@@ -42,7 +53,12 @@
             if (res.ok) {
                 const user = await res.json();
                 document.getElementById('user-info').textContent =
-                    `Connecté en tant que : ${user.username} (${user.email})`;
+                    `Connecté en tant que : ${user.username} (${user.email}) ${user.rib}`;
+
+                
+                displayRibIfExists(user);
+                
+
                 loadGroups();
                 loadStatistics();
 
@@ -81,14 +97,64 @@
                     <button onclick="checkRole(${group.id})">Mon rôle</button>
                     <div id="group-${group.id}-members"></div>
                     <div id="group-${group.id}-role"></div>
+                    <button onclick="loadSettlements(${group.id})">Voir remboursements</button>
+                    <div id="group-${group.id}-settlements"></div>
                     <hr>
                 `;
                 list.appendChild(li);
+
+               
             });
         }).catch(() => {
             document.getElementById('group-list').textContent = 'Erreur de chargement des groupes.';
         });
     }
+
+    function loadSettlements(groupId) {
+        fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(r => r.json())
+        .then(expenses => {
+            expenses.forEach(exp => {
+            fetch(`http://localhost:49162/api/expenses/${exp.id}/settlements`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            })
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById(`group-${groupId}-settlements`) || document.createElement('div');
+                container.id = `group-${groupId}-settlements`;
+                document.getElementById(`group-${groupId}-role`).after(container); // positionnement
+                container.innerHTML += `<h4>Remboursements pour ${exp.title}</h4>`;
+
+                if (!data.settlements || !data.settlements.length) {
+                container.innerHTML += `<p>Aucun remboursement pour cette dépense.</p>`;
+                return;
+                }
+
+                data.settlements.forEach(s => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    ${s.from.username} → ${s.to.username} : ${s.amount.toFixed(2)} €
+                    ${s.rib ? `<br><strong>RIB :</strong> ${s.rib}` : ''}
+                    ${s.from.id == userId ? `<button onclick="markPaid(${s.id})">✅ Marquer comme payé</button>` : ''}
+                `;
+                container.appendChild(li);
+                });
+            });
+            });
+        });
+    }
+
+    function markPaid(id) {
+        fetch(`http://localhost:49162/api/reimbursements/${id}/mark-paid`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(r => r.json())
+        .then(msg => alert(msg.message || msg.error));
+    }
+
 
     function deleteGroup(groupId) {
         if (!confirm("Supprimer ce groupe ?")) return;
@@ -210,6 +276,38 @@
             document.getElementById('stats-total').textContent = 'Erreur de chargement des statistiques.';
         });
     }
+
+
+
+
+    function uploadRib() {
+        const rib = document.getElementById('rib-input').value.trim();
+        if (!rib) return alert("Veuillez saisir un RIB.");
+
+        fetch('http://localhost:49162/api/user/upload-rib', {
+            method: 'POST',
+            headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ rib })
+        }).then(r => r.json())
+            .then(data => alert(data.message || data.error));
+    }
+
+
+
+    function displayRibIfExists(user) {
+        const ribDisplay = document.getElementById('rib-display');
+        if (!ribDisplay) return;
+
+        if (user.rib) {
+            ribDisplay.textContent = `RIB enregistré : ${user.rib}`;
+        } else {
+            ribDisplay.textContent = "Aucun RIB enregistré pour l'instant.";
+        }
+    }
+
 
 
 </script>
