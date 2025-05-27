@@ -22,6 +22,7 @@
     <h3>Ajouter mon RIB</h3>
 
     <p id="rib-display" style="font-weight: bold; color: green;"></p>
+    
 
     <input type="text" id="rib-input" placeholder="Votre RIB">
     <button onclick="uploadRib()">Enregistrer le RIB</button>
@@ -38,8 +39,10 @@
     <h2>Mes groupes</h2>
     <ul id="group-list">Chargement...</ul>
 
-    <script>
+<script>
     const token = localStorage.getItem('jwt');
+    let userId = null;
+
 
     if (!token) {
         window.location.href = '/login';
@@ -52,6 +55,10 @@
         }).then(async res => {
             if (res.ok) {
                 const user = await res.json();
+                userId = user.id;
+
+                console.log("Utilisateur récupéré :", user);
+
                 document.getElementById('user-info').textContent =
                     `Connecté en tant que : ${user.username} (${user.email}) ${user.rib}`;
 
@@ -117,34 +124,39 @@
         .then(r => r.json())
         .then(expenses => {
             expenses.forEach(exp => {
-            fetch(`http://localhost:49162/api/expenses/${exp.id}/settlements`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-            })
-            .then(res => res.json())
-            .then(data => {
-                const container = document.getElementById(`group-${groupId}-settlements`) || document.createElement('div');
-                container.id = `group-${groupId}-settlements`;
-                document.getElementById(`group-${groupId}-role`).after(container); // positionnement
-                container.innerHTML += `<h4>Remboursements pour ${exp.title}</h4>`;
+                fetch(`http://localhost:49162/api/expenses/${exp.id}/settlements`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById(`group-${groupId}-settlements`) || document.createElement('div');
+                    container.id = `group-${groupId}-settlements`;
+                    document.getElementById(`group-${groupId}-role`).after(container);
+                    container.innerHTML += `<h4>Remboursements pour ${exp.title}</h4>`;
 
-                if (!data.settlements || !data.settlements.length) {
-                container.innerHTML += `<p>Aucun remboursement pour cette dépense.</p>`;
-                return;
-                }
+                    if (!data.settlements || !data.settlements.length) {
+                        container.innerHTML += `<p>Aucun remboursement pour cette dépense.</p>`;
+                        return;
+                    }
 
-                data.settlements.forEach(s => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    ${s.from.username} → ${s.to.username} : ${s.amount.toFixed(2)} €
-                    ${s.rib ? `<br><strong>RIB :</strong> ${s.rib}` : ''}
-                    ${s.from.id == userId ? `<button onclick="markPaid(${s.id})">✅ Marquer comme payé</button>` : ''}
-                `;
-                container.appendChild(li);
+                    const settlementsHTML = data.settlements.map(s => {
+                        const fromUser = s.from;
+                        const toUser = s.to;
+
+                        // 💡 Vérifie si le user connecté est le débiteur, et s’il y a un rib côté toUser
+                        const ribInfo = (fromUser.id === data.current_user_id && toUser.rib)
+                            ? `<br><small>💳 RIB de ${toUser.username} : ${toUser.rib}</small>`
+                            : '';
+
+                        return `<li>${fromUser.username} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toUser.username}${ribInfo}</li>`;
+                    }).join('');
+
+                    container.innerHTML += `<ul>${settlementsHTML}</ul>`;
                 });
-            });
             });
         });
     }
+
 
     function markPaid(id) {
         fetch(`http://localhost:49162/api/reimbursements/${id}/mark-paid`, {
@@ -299,14 +311,19 @@
 
     function displayRibIfExists(user) {
         const ribDisplay = document.getElementById('rib-display');
-        if (!ribDisplay) return;
+        if (!ribDisplay) {
+            console.warn("rib-display non trouvé dans le DOM");
+            return;
+        }
 
-        if (user.rib) {
+        if (user.rib && user.rib.trim() !== "") {
             ribDisplay.textContent = `RIB enregistré : ${user.rib}`;
         } else {
             ribDisplay.textContent = "Aucun RIB enregistré pour l'instant.";
         }
     }
+
+
 
 
 

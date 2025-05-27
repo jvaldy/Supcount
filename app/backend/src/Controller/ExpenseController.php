@@ -229,7 +229,7 @@ class ExpenseController extends AbstractController
             }
         }
 
-        // Calcul optimisé des remboursements
+
         $settlements = [];
         foreach ($debtors as $debtorId => $debtAmount) {
             foreach ($creditors as $creditorId => $creditAmount) {
@@ -237,28 +237,23 @@ class ExpenseController extends AbstractController
 
                 $payment = min($debtAmount, $creditAmount);
 
-                // Affiche le RIB seulement si l'utilisateur connecté est le débiteur
-                $rib = null;
-                if ($debtorId === $user->getId()) {
-                    $creditor = $userRepository->find($creditorId);
-                    $rib = $creditor?->getRib();
-                }
+                $fromUser = $userRepository->find($debtorId);
+                $toUser = $userRepository->find($creditorId);
 
                 $settlements[] = [
-                    'id' => uniqid(), // ou un vrai id si tu utilises une entité Reimbursement
+                    'id' => uniqid(), // ou un ID réel si tu les enregistres
                     'from' => [
                         'id' => $debtorId,
-                        'username' => $userRepository->find($debtorId)?->getUsername(),
+                        'username' => $fromUser?->getUsername(),
                     ],
                     'to' => [
                         'id' => $creditorId,
-                        'username' => $userRepository->find($creditorId)?->getUsername(),
+                        'username' => $toUser?->getUsername(),
+                        // 💡 Inclure le RIB du créancier SEULEMENT si le débiteur est l'utilisateur connecté
+                        'rib' => ($debtorId === $user->getId()) ? $toUser?->getRib() : null
                     ],
                     'amount' => round($payment, 2),
-                    'rib' => $rib,
                 ];
-
-
 
                 $debtors[$debtorId] -= $payment;
                 $creditors[$creditorId] -= $payment;
@@ -269,12 +264,14 @@ class ExpenseController extends AbstractController
             }
         }
 
+
         return $this->json([
             'expense' => [
                 'id' => $expense->getId(),
                 'title' => $expense->getTitle(),
                 'amount' => $amount,
                 'paid_by' => $payer->getUsername(),
+                'paid_by_rib' => $payer->getRib(),
             ],
             'settlements' => $settlements,
         ]);

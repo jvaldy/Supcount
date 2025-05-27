@@ -284,11 +284,14 @@
                       return `<li>${fromName} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toName}</li>`;
                     }).join('');
 
+                    console.log(data.expense)
+
 
                     container.innerHTML = `
-                      <h4>Remboursements pour la dépense : <em>${data.expense.title}</em></h4>
+                      <h4>Remboursements pour la dépense : <em>${data.expense.title} </em></h4>
                       <ul>${settlementsHTML}</ul>
                       <p><strong>Payé par :</strong> ${data.expense.paid_by} | <strong>Montant total :</strong> ${data.expense.amount.toFixed(2)} €</p>
+                      ${data.expense.paid_by_rib ? `<strong>💳 RIB de ${data.expense.paid_by} :</strong> ${data.expense.paid_by_rib}` : ''}
                     `;
                   })
                   .catch(error => {
