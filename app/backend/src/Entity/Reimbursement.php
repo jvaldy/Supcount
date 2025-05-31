@@ -16,9 +16,10 @@ class Reimbursement
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Expense::class)]
-    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
+    #[ORM\ManyToOne(inversedBy: "reimbursements", targetEntity: Expense::class)]
+    #[ORM\JoinColumn(nullable: false)]
     private ?Expense $expense = null;
+
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
@@ -29,7 +30,7 @@ class Reimbursement
     private ?User $toUser = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
-    private float $amount;
+    private string $amount; 
 
     #[ORM\Column(type: 'boolean')]
     private bool $isPaid = false;
@@ -80,12 +81,12 @@ class Reimbursement
         return $this;
     }
 
-    public function getAmount(): float
+    public function getAmount(): string
     {
         return $this->amount;
     }
 
-    public function setAmount(float $amount): self
+    public function setAmount(string $amount): self
     {
         $this->amount = $amount;
         return $this;

@@ -1,7 +1,5 @@
 <?php
 
-// src/Entity/Expense.php
-
 namespace App\Entity;
 
 use App\Repository\ExpenseRepository;
@@ -10,7 +8,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\User;
 use App\Entity\Group;
-
 use Doctrine\DBAL\Types\Types;
 
 #[ORM\Entity(repositoryClass: ExpenseRepository::class)]
@@ -51,9 +48,16 @@ class Expense
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $customShares = null;
 
+    #[ORM\Column(type: 'boolean')]
+    private bool $fullyReimbursed = false;
+
+    #[ORM\OneToMany(mappedBy: "expense", targetEntity: Reimbursement::class)]
+    private Collection $reimbursements;
+
     public function __construct()
     {
         $this->concernedUsers = new ArrayCollection();
+        $this->reimbursements = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -69,7 +73,6 @@ class Expense
     public function setTitle(string $title): self
     {
         $this->title = $title;
-
         return $this;
     }
 
@@ -81,7 +84,6 @@ class Expense
     public function setAmount(string $amount): self
     {
         $this->amount = $amount;
-
         return $this;
     }
 
@@ -93,7 +95,6 @@ class Expense
     public function setDate(\DateTimeInterface $date): self
     {
         $this->date = $date;
-
         return $this;
     }
 
@@ -105,7 +106,6 @@ class Expense
     public function setPaidBy(User $paidBy): self
     {
         $this->paidBy = $paidBy;
-
         return $this;
     }
 
@@ -117,7 +117,6 @@ class Expense
     public function setGroup(Group $group): self
     {
         $this->group = $group;
-
         return $this;
     }
 
@@ -129,7 +128,6 @@ class Expense
     public function setCategory(string $category): self
     {
         $this->category = $category;
-
         return $this;
     }
 
@@ -141,7 +139,6 @@ class Expense
     public function setReceipt(?string $receipt): self
     {
         $this->receipt = $receipt;
-
         return $this;
     }
 
@@ -155,17 +152,14 @@ class Expense
         if (!$this->concernedUsers->contains($user)) {
             $this->concernedUsers->add($user);
         }
-
         return $this;
     }
 
     public function removeConcernedUser(User $user): self
     {
         $this->concernedUsers->removeElement($user);
-
         return $this;
     }
-
 
     public function getCustomShares(): ?array
     {
@@ -178,6 +172,30 @@ class Expense
         return $this;
     }
 
+    public function isFullyReimbursed(): bool
+    {
+        return $this->fullyReimbursed;
+    }
 
+    public function setFullyReimbursed(bool $status): self
+    {
+        $this->fullyReimbursed = $status;
+        return $this;
+    }
 
+    public function getReimbursements(): Collection
+    {
+        return $this->reimbursements;
+    }
+
+    // Optionnel : tu peux garder cette méthode si elle sert dans le code existant (mais elle ne dépend plus de validation manuelle)
+    public function isReimbursedBy(int $userId): bool
+    {
+        foreach ($this->reimbursements as $reimb) {
+            if ($reimb->getFromUser()->getId() === $userId && $reimb->isPaid()) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
