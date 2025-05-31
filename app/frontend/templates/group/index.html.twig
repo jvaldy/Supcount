@@ -21,6 +21,7 @@
     <button onclick="showTab('expenses-tab')">📋 Dépenses</button>
     <button onclick="showTab('balances-tab')">💰 Soldes</button>
     <button onclick="showTab('settlement-tab')">💸 Remboursements</button>
+    <button onclick="showTab('chat-tab')">💬 Messagerie</button>
   </div>
 
   <!-- Onglet : Informations du groupe -->
@@ -86,6 +87,18 @@
       <ul id="settlement-results"></ul>
   </div>
 
+  <!-- Onglet : Messagerie instantanée -->
+  <div id="chat-tab" class="tab">
+    <h2>💬 Messagerie du groupe</h2>
+    <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fafaff;">
+      <em>Chargement des messages...</em>
+    </div>
+    <form id="chat-form" style="margin-top: 10px;">
+      <input type="text" id="chat-input" placeholder="Écrivez un message..." autocomplete="off" style="width:70%;" required autofocus>
+      <button type="submit">Envoyer</button>
+    </form>
+  </div>
+
   <!-- À mettre n'importe où dans le body -->
   <div id="edit-modal" style="display: none; border: 1px solid black; padding: 10px;">
     <h4>Modifier les participants</h4>
@@ -114,7 +127,7 @@
 
 
 
-
+    <script src="https://unpkg.com/@mercure/mercure"></script>
 
     <script>
     
@@ -625,9 +638,72 @@
 
 
 
+      // URL Mercure (adapter le port si besoin)
+      const mercureUrl = 'http://localhost:49165/.well-known/mercure';
 
+
+      function loadChatMessages() {
+        fetch(`http://localhost:49162/api/groups/${groupId}/messages`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(res => res.json())
+        .then(messages => {
+          const chatBox = document.getElementById('chat-messages');
+          if (!messages.length) {
+            chatBox.innerHTML = "<em>Aucun message dans ce groupe.</em>";
+          } else {
+            chatBox.innerHTML = messages.map(m =>
+              `<div><strong>${m.author}</strong> <span style="color:#888;font-size:0.9em">[${m.createdAt}]</span><br>${m.content}</div>`
+            ).join('<hr style="margin:6px 0;">');
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+        });
+      }
+
+      // Envoi de message
+      document.getElementById('chat-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const input = document.getElementById('chat-input');
+        const content = input.value.trim();
+        if (!content) return;
+
+        fetch(`http://localhost:49162/api/groups/${groupId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ content })
+        })
+        .then(res => res.json())
+        .then(data => {
+          input.value = '';
+          // Le message apparaîtra grâce à Mercure automatiquement
+        });
+      });
+
+      // Initial load
+      loadChatMessages();
+
+      // Souscription Mercure (écoute en temps réel)
+      const url = new URL(mercureUrl);
+      url.searchParams.append('topic', `/groups/${groupId}/messages`);
+      const eventSource = new EventSource(url);
+
+      eventSource.onmessage = function(event) {
+        // Un nouveau message a été publié sur ce groupe
+        const data = JSON.parse(event.data);
+        const chatBox = document.getElementById('chat-messages');
+        const html = `<div><strong>${data.author}</strong> <span style="color:#888;font-size:0.9em">[${data.createdAt}]</span><br>${data.content}</div>`;
+        // Ajoute le message à la fin
+        chatBox.innerHTML += (chatBox.innerHTML.trim() ? '<hr style="margin:6px 0;">' : '') + html;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      };
 
     </script>
+
+    
+
 
 </body>
 </html>

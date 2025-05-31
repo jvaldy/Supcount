@@ -21,6 +21,19 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\Response;
 
+// use Symfony\Component\Mercure\PublisherInterface;
+use Symfony\Component\Mercure\Update;
+use App\Entity\Message;
+
+use Symfony\Component\Mercure\Jwt\JwtTokenFactoryInterface;
+use Symfony\Component\HttpFoundation\Cookie;
+
+use Symfony\Component\Mercure\HubInterface;
+
+
+
+
+
 
 
 
@@ -420,6 +433,104 @@ class GroupController extends AbstractController
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="depenses '. htmlspecialchars($group->getName()) .'.pdf"',
         ]);
+    }
+
+
+    #[Route('/api/groups/{group}/messages', name: 'send_group_message', methods: ['POST'])]
+    public function sendGroupMessage(
+        Group $group, 
+        Request $request, 
+        Security $security,
+        EntityManagerInterface $em,
+        HubInterface $hub
+    ): JsonResponse {
+        $user = $security->getUser();
+
+        // Vérifier si l'utilisateur est membre du groupe
+        if (!$group->getMembers()->contains($user)) {
+            return $this->json(['error' => 'Accès refusé.'], 403);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $content = trim($data['content'] ?? '');
+
+        if (!$content) {
+            return $this->json(['error' => 'Message vide.'], 400);
+        }
+
+        $msg = new Message();
+        $msg->setContent($content);
+        $msg->setAuthor($user);
+        $msg->setGroup($group);
+        $msg->setCreatedAt(new \DateTimeImmutable()); // Assure que le champ est bien défini
+
+        $em->persist($msg);
+        $em->flush();
+
+        // Publier via Mercure
+        $update = new Update(
+            sprintf("/groups/%d/messages", $group->getId()),
+            json_encode([
+                'id'        => $msg->getId(),
+                'content'   => $msg->getContent(),
+                'author'    => method_exists($user, 'getUsername')
+                                ? $user->getUsername()
+                                : (method_exists($user, 'getUserIdentifier')
+                                    ? $user->getUserIdentifier()
+                                    : 'utilisateur inconnu'),
+                'createdAt' => $msg->getCreatedAt()->format('Y-m-d H:i:s')
+            ])
+        );
+
+        $hub->publish($update);
+
+        return $this->json(['message' => 'Envoyé.']);
+    }
+
+    #[Route('/api/groups/{group}/messages', name: 'get_group_messages', methods: ['GET'])]
+    public function getGroupMessages(
+        Group $group,
+        Security $security,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $user = $security->getUser();
+
+        if (!$group->getMembers()->contains($user)) {
+            return $this->json(['error' => 'Accès refusé.'], 403);
+        }
+
+        $messages = $em->getRepository(Message::class)
+            ->findBy(['group' => $group], ['createdAt' => 'ASC']);
+
+        $data = [];
+        foreach ($messages as $msg) {
+            $data[] = [
+                'id' => $msg->getId(),
+                'author' => $msg->getAuthor()->getUsername(),
+                'content' => $msg->getContent(),
+                'createdAt' => $msg->getCreatedAt()->format('Y-m-d H:i:s'),
+            ];
+        }
+
+        return $this->json($data);
+    }
+
+    #[Route('/groupe/{group}', name: 'group_show')]
+    public function showGroup(Group $group, JwtTokenFactoryInterface $jwtFactory): Response
+    {
+        $jwt = $jwtFactory->create([
+            'subscribe' => ['/groups/' . $group->getId() . '/messages']
+        ]);
+
+        $response = $this->render('group/show.html.twig', [
+            'groupId' => $group->getId()
+        ]);
+
+        $response->headers->setCookie(
+            Cookie::create('mercureAuthorization', $jwt, 0, '/', null, false, true, false, 'Strict')
+        );
+
+        return $response;
     }
 
 
