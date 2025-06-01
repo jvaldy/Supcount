@@ -5,7 +5,7 @@ services:
     ports:
       - "49162:8000"
     volumes:
-      - supcount_backend_volume:/app
+      - ./backend:/app:cached
     depends_on:
       - db
     environment:
@@ -19,7 +19,7 @@ services:
     ports:
       - "49161:8000"
     volumes:
-      - supcount_frontend_volume:/app
+      - ./frontend:/app:cached
     networks:
       - supcount_net
 
@@ -33,7 +33,7 @@ services:
       MYSQL_USER: supcount_user_a7X9
       MYSQL_PASSWORD: S@f3_P@ss_MYSQL_89!
     volumes:
-      - supcount_db_data:/var/lib/mysql
+      - ./db:/var/lib/mysql
     ports:
       - "49163:3306"
     networks:
@@ -44,7 +44,7 @@ services:
     container_name: supcount_phpmyadmin
     restart: always
     ports:
-      - "49164:80"
+      - "49164:80"  # Tu accéderas à phpMyAdmin via localhost:49164
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
@@ -57,7 +57,6 @@ services:
 
   mercure:
     image: dunglas/mercure
-    container_name: supcount_mercure
     restart: unless-stopped
     environment:
       MERCURE_PUBLISHER_JWT_KEY: 'MySecretMercureKey123!'
@@ -72,17 +71,9 @@ services:
       MERCURE_UI: 'true'
       MERCURE_TLS: '0'
     ports:
-      - "49165:80"
+      - "49165:80"  
     networks:
-      - supcount_net
+      - supcount_net  
 
 networks:
   supcount_net:
-
-volumes:
-  supcount_backend_volume:
-  supcount_frontend_volume:
-  supcount_db_data:
-
-
-

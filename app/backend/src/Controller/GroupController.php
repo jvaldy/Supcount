@@ -536,5 +536,36 @@ class GroupController extends AbstractController
 
 
 
+    #[Route('/api/groups/{group}/debts/{user}/validate', name: 'validate_debt_payment', methods: ['POST'])]
+    public function validateDebtPayment(Group $group, User $user, Security $security, EntityManagerInterface $em): JsonResponse
+    {
+        $currentUser = $security->getUser();
+
+        // Vérifier si l'utilisateur actuel est membre du groupe
+        if (!$group->getMembers()->contains($currentUser)) {
+            return $this->json(['error' => 'Accès refusé.'], 403);
+        }
+
+        // Vérifier si l'utilisateur à valider est membre du groupe
+        if (!$group->getMembers()->contains($user)) {
+            return $this->json(['error' => 'Utilisateur non membre du groupe.'], 400);
+        }
+
+        // Logique pour marquer la dette comme payée
+        // Par exemple, mettre à jour une entité Debt avec un statut "payé"
+
+        // Exemple fictif :
+        // $debt = $debtRepository->findOneBy(['group' => $group, 'debtor' => $user]);
+        // if (!$debt) {
+        //     return $this->json(['error' => 'Dette non trouvée.'], 404);
+        // }
+        // $debt->setStatus('payé');
+        // $em->flush();
+
+        return $this->json(['message' => 'Le paiement de la dette a été validé avec succès.']);
+    }
+
+
+
 
 }

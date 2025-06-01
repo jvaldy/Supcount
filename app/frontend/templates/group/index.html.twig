@@ -2,812 +2,177 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Détails du groupe</title>
-  <style>
-    .tab { display: none; }
-    .tab.active { display: block; }
-    .tab-buttons button {
-      margin-right: 10px;
-    }
-  </style>
+  <title>Détails du groupe – SUPCOUNT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ asset('css/group.css') }}">
+
+  
+
 </head>
 <body>
-  <h1>Détails du groupe</h1>
-  <p><a href="/accueil">⬅ Retour à l'accueil</a></p>
+  <nav class="navbar navbar-light bg-white shadow-sm px-4">
+    <a class="navbar-brand" href="/">
+      <img src="{{ asset('images/supcount.png') }}" alt="SUPCOUNT Logo" class="logo">
+    </a>
+    <button class="btn btn-outline-danger" id="logout">Déconnexion</button>
+  </nav>
 
-  <div class="tab-buttons">
-    <button onclick="showTab('info-tab')">📄 Infos</button>
-    <button onclick="showTab('create-tab')">➕ Nouvelle dépense</button>
-    <button onclick="showTab('expenses-tab')">📋 Dépenses</button>
-    <button onclick="showTab('balances-tab')">💰 Soldes</button>
-    <button onclick="showTab('settlement-tab')">💸 Remboursements</button>
-    <button onclick="showTab('chat-tab')">💬 Messagerie</button>
-  </div>
+  <div class="container my-4">
+    <h1 class="form-title text-center">Détails du groupe</h1>
 
-  <!-- Onglet : Informations du groupe -->
-  <div id="info-tab" class="tab active">
-    <section id="group-info">Chargement des infos du groupe...</section>
-    <section id="group-role"></section>
-    <section id="group-add-members">
-      <h4>Ajouter un membre</h4>
-      <input type="text" id="new-member-id" placeholder="ID utilisateur ou email">
-      <button id="add-member-btn">Ajouter</button>
-      <p id="add-member-result"></p>
-    </section>
-    <section id="group-members"></section>
-  </div>
-
-  <!-- Onglet : Création d’une dépense -->
-  <div id="create-tab" class="tab">
-    <h2>Créer une nouvelle dépense</h2>
-    <form id="expense-form" enctype="multipart/form-data">
-      <input type="text" id="expense-title" placeholder="Intitulé" required>
-      <input type="number" id="expense-amount" placeholder="Montant (€)" required>
-      <input type="date" id="expense-date" required>
-      <input type="text" id="expense-category" placeholder="Catégorie" required>
-      <input type="text" id="expense-users" placeholder="IDs des utilisateurs concernés (ex: 1,2)" required>
-      <input type="file" id="expense-receipt" accept=".pdf,image/*">
-      <button type="submit">Ajouter la dépense</button>
-    </form>
-    <p id="expense-result"></p>
-  </div>
-
-  <!-- Onglet : Liste des dépenses -->
-  <div id="expenses-tab" class="tab">
-    <h2>Dépenses du groupe</h2>
-    <label for="sort-expenses">Trier par :</label>
-    <select id="sort-expenses">
-      <option value="date">Date</option>
-      <option value="amount">Montant</option>
-      <option value="paidBy">Payé par</option>
-    </select>
-
-    <div style="margin-bottom: 15px;">
-      <button onclick="downloadPdf()">📥 Télécharger PDF</button>
-      <button onclick="downloadCsv()">📥 Télécharger en CSV</button>
+    <div class="btn-group d-flex justify-content-center flex-wrap mb-4" role="group">
+      <button class="btn btn-outline-primary m-1" onclick="showTab('info-tab')">📄 Infos</button>
+      <button class="btn btn-outline-primary m-1" onclick="showTab('create-tab')">➕ Nouvelle dépense</button>
+      <button class="btn btn-outline-primary m-1" onclick="showTab('expenses-tab')">📋 Dépenses</button>
+      <button class="btn btn-outline-primary m-1" onclick="showTab('balances-tab')">💰 Soldes</button>
+      <button class="btn btn-outline-primary m-1" onclick="showTab('settlement-tab')">💸 Remboursements</button>
+      <button class="btn btn-outline-primary m-1" onclick="showTab('chat-tab')">💬 Messagerie</button>
     </div>
 
+    <div id="info-tab" class="tab active">
+      <div id="loader-group-info" class="spinner my-2 d-none text-center">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div>Chargement des informations du groupe...</div>
+      </div>
+      <section id="group-info"></section>
+      <section id="group-role" class="mt-2"></section>
+      <section id="group-add-members" class="mt-4">
+        <h4>Ajouter un membre</h4>
+        <div class="input-group mb-2">
+          <input type="text" id="new-member-id" class="form-control" placeholder="ID utilisateur ou email">
+          <button class="btn btn-outline-success" id="add-member-btn">Ajouter</button>
+        </div>
+        <p id="add-member-result" class="text-muted"></p>
+      </section>
+      <section id="group-members" class="mt-3"></section>
+    </div>
 
-    <ul id="group-expenses">Chargement...</ul>
-  </div>
+    <div id="create-tab" class="tab">
+      <h2>Créer une nouvelle dépense</h2>
+      <form id="expense-form" enctype="multipart/form-data" class="mb-3">
+        <input type="text" id="expense-title" class="form-control mb-2" placeholder="Intitulé" required>
+        <input type="number" id="expense-amount" class="form-control mb-2" placeholder="Montant (€)" required>
+        <input type="date" id="expense-date" class="form-control mb-2" required>
+        <input type="text" id="expense-category" class="form-control mb-2" placeholder="Catégorie" required>
+        <input type="text" id="expense-users" class="form-control mb-2" placeholder="IDs des utilisateurs concernés (ex: 1,2)" required>
+        <input type="file" id="expense-receipt" class="form-control mb-2" accept=".pdf,image/*">
+        <button type="submit" class="btn btn-primary w-100">Ajouter la dépense</button>
+      </form>
+      <p id="expense-result" class="text-success"></p>
+    </div>
 
-  <!-- Onglet : Soldes -->
-  <div id="balances-tab" class="tab">
-    <h2>Soldes des membres</h2>
-    <ul id="group-balances">Chargement...</ul>
-  </div>
+    <div id="expenses-tab" class="tab">
+      <h2>Dépenses du groupe</h2>
+      <div class="d-flex align-items-center mb-2">
+        <label class="me-2" for="sort-expenses">Trier par :</label>
+        <select id="sort-expenses" class="form-select w-auto">
+          <option value="date">Date</option>
+          <option value="amount">Montant</option>
+          <option value="paidBy">Payé par</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <button class="btn btn-outline-secondary me-2" onclick="downloadPdf()">📥 PDF</button>
+        <button class="btn btn-outline-secondary" onclick="downloadCsv()">📥 CSV</button>
+      </div>
+      <ul id="group-expenses" class="list-group">Chargement...</ul>
+    </div>
 
-  <!-- Onglet : Remboursements -->
-  <div id="settlement-tab" class="tab">
+    <div id="balances-tab" class="tab">
+      <h2>Soldes des membres</h2>
+      <ul id="group-balances" class="list-group">Chargement...</ul>
+    </div>
+
+    <div id="settlement-tab" class="tab">
       <h2>Remboursements par dépense</h2>
-      <label for="settlement-select">Choisir une dépense :</label>
-      <select id="settlement-select">
-          <option disabled selected>Chargement...</option>
+      <select id="settlement-select" class="form-select mb-2">
+        <option disabled selected>Chargement...</option>
       </select>
-      <ul id="settlement-results"></ul>
-  </div>
-
-  <!-- Onglet : Messagerie instantanée -->
-  <div id="chat-tab" class="tab">
-    <h2>💬 Messagerie du groupe</h2>
-    <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fafaff;">
-      <em>Chargement des messages...</em>
+      <ul id="settlement-results" class="list-group"></ul>
     </div>
-    <form id="chat-form" style="margin-top: 10px;">
-      <input type="text" id="chat-input" placeholder="Écrivez un message..." autocomplete="off" style="width:70%;" required autofocus>
-      <button type="submit">Envoyer</button>
-    </form>
-  </div>
 
-  <!-- À mettre n'importe où dans le body -->
-  <div id="edit-modal" style="display: none; border: 1px solid black; padding: 10px;">
-    <h4>Modifier les participants</h4>
-    <form id="edit-form">
-      <div id="edit-checkbox-list">Chargement...</div>
-      <input type="hidden" id="edit-expense-id">
-      <button type="submit">Enregistrer</button>
-      <button type="button" onclick="closeEditModal()">Annuler</button>
-    </form>
+    <div id="chat-tab" class="tab">
+      <h2>Messagerie du groupe</h2>
+      <div id="chat-messages" class="border p-3 bg-light" style="height: 200px; overflow-y: auto;">
+        <em>Chargement des messages...</em>
+      </div>
+      <form id="chat-form" class="mt-3 d-flex gap-2">
+        <input type="text" id="chat-input" class="form-control" placeholder="Écrivez un message..." required>
+        <button class="btn btn-primary">Envoyer</button>
+      </form>
+    </div>
   </div>
 
 
 
 
-  <div id="edit-expense-modal" style="display:none; border:1px solid #000; padding:10px;">
-  <h3>Modifier la dépense</h3>
-  <form id="edit-expense-form">
-    <input type="hidden" id="edit-expense-id">
-    <input type="text" id="edit-expense-title" placeholder="Titre">
-    <input type="number" id="edit-expense-amount" placeholder="Montant">
-    <input type="text" id="edit-expense-category" placeholder="Catégorie">
-    <button type="submit">💾 Sauvegarder</button>
-    <button type="button" onclick="closeEditExpenseModal()">❌ Annuler</button>
-  </form>
-</div>
 
 
 
-    <script src="https://unpkg.com/@mercure/mercure"></script>
 
-    <script>
-    
-        const token = localStorage.getItem('jwt');
-        const groupId = {{ groupId }};
-        let rawExpenses = [];
 
-
-
-        let userId = null; // Sera visible dans tout le fichier
-
-        fetch('http://localhost:49162/api/profile', {
-          method: 'GET',
-          headers: {
-            'Authorization': 'Bearer ' + token
-          }
-        }).then(async res => {
-          if (res.ok) {
-            const user = await res.json();
-            userId = user.id;
-            localStorage.setItem('userId', userId); 
-
-            console.log("Utilisateur connecté :", user);
-
-          } else {
-            localStorage.removeItem('jwt');
-            window.location.href = '/login';
-          }
-        }).catch(() => {
-          alert("Erreur : impossible de récupérer les informations utilisateur.");
-        });
-
-
-
-
-
-        function showTab(tabId) {
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-        }
-
-        function closeEditModal() {
-          document.getElementById('edit-modal').style.display = 'none';
-        }
-
-
-        function handleAuthError(response) {
-          if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwt');
-            window.location.href = '/login';
-            return true;
-          }
-          return false;
-        }
-
-        if (!token) {
-            window.location.href = '/login';
-        } else {
-            Promise.all([
-              fetch(`http://localhost:49162/api/groups/${groupId}`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              }).then(res => {
-                if (handleAuthError(res)) return;
-                return res.json();
-              }),
-              fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              }).then(res => {
-                if (handleAuthError(res)) return;
-                return res.json();
-              }),
-              fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              }).then(res => {
-                if (handleAuthError(res)) return;
-                return res.json();
-              }),
-              fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              }).then(res => {
-                if (handleAuthError(res)) return;
-                return res.json();
-              }),
-              fetch(`http://localhost:49162/api/groups/${groupId}/balances`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              }).then(res => {
-                if (handleAuthError(res)) return;
-                return res.json();
-              })
-            ])
-            .then(([group, role, members, expenses, balances]) => {
-            // Infos groupe
-            document.getElementById('group-info').innerHTML = `
-                <h2>${group.name}</h2>
-                <p>Créé le : ${group.createdAt}</p>
-                <p>Créé par : ${group.createdBy.username} (${group.createdBy.email})</p>
-            `;
-            document.getElementById('group-role').innerHTML = `<strong>Mon rôle :</strong> ${role.role}`;
-            document.getElementById('group-members').innerHTML = `
-                <h3>Membres :</h3>
-                <ul>
-                  ${members.map(m => {
-                    const isCreator = m.role === 'créateur';
-                    const deleteButton = isCreator ? '' : `<button onclick="removeMember(${m.id})">❌</button>`;
-                    return `<li><strong>${m.username}</strong> (${m.email}) – <em>${m.role}</em> ${deleteButton}</li>`;
-                  }).join('')}
-                </ul>
-
-            `;
-            document.getElementById('add-member-btn').addEventListener('click', () => {
-              const input = document.getElementById('new-member-id');
-              const value = input.value.trim();
-              const result = document.getElementById('add-member-result');
-
-              if (!value) {
-                result.textContent = 'Veuillez entrer un ID ou un email.';
-                return;
-              }
-
-              // Tente de deviner si c’est un ID numérique ou un email
-              const isEmail = value.includes('@');
-              const body = isEmail ? { email: value } : { user_id: parseInt(value) };
-
-              fetch(`http://localhost:49162/api/groups/${groupId}/add-member`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': 'Bearer ' + token,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-              })
-              .then(async res => {
-                if (handleAuthError(res)) return;
-                const data = await res.json();
-                result.textContent = data.message || data.error;
-                if (res.ok) {
-                  location.reload();
-                }
-              })
-              .catch(() => {
-                result.textContent = "Erreur lors de l’ajout du membre.";
-              });
-            });
-
-
-            // Dépenses
-            rawExpenses = expenses;
-            renderExpenses(expenses);
-
-            // Soldes
-            const balanceList = Object.entries(balances).map(([uid, solde]) => {
-              const member = members.find(m => m.id == uid);
-              const name = member ? member.username : `Utilisateur #${uid}`;
-              return `<li>${name} : ${parseFloat(solde).toFixed(2)} €</li>`;
-            }).join('');
-
-            document.getElementById('group-balances').innerHTML = `<ul>${balanceList}</ul>`;
-
-
-            // Remplir le select des dépenses pour remboursements
-            const settlementSelect = document.getElementById('settlement-select');
-            const settlementResults = document.getElementById('settlement-results');
-
-            if (expenses.length === 0) {
-                settlementSelect.innerHTML = `<option disabled>Aucune dépense</option>`;
-            } else {
-                settlementSelect.innerHTML = `<option disabled selected>Choisir une dépense</option>`;
-                expenses.forEach(e => {
-                const opt = document.createElement('option');
-                opt.value = e.id;
-                opt.textContent = `${e.title} – ${e.amount} €`;
-                settlementSelect.appendChild(opt);
-                });
-
-                settlementSelect.addEventListener('change', () => {
-                  const expenseId = settlementSelect.value;
-
-                  // 1. Confirm the settlements (will persist Reimbursement entities)
-                  fetch(`http://localhost:49162/api/expenses/${expenseId}/confirm-settlements`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': 'Bearer ' + token
-                    }
-                  })
-                  .then(() => {
-                    // 2. Then fetch the settlement data to render
-                    return fetch(`http://localhost:49162/api/expenses/${expenseId}/settlements`, {
-                      headers: {
-                        'Authorization': 'Bearer ' + token
-                      }
-                    });
-                  })
-                  .then(res => res.json())
-                  .then(data => {
-                    const container = document.getElementById('settlement-results');
-
-                    if (!data.settlements || !data.settlements.length) {
-                      container.innerHTML = '<li>Aucun remboursement à effectuer pour cette dépense.</li>';
-                      return;
-                    }
-
-                    const settlementsHTML = data.settlements.map(s => {
-                      const fromName = s.from.username || `Utilisateur #${s.from.id}`;
-                      const toName = s.to.username || `Utilisateur #${s.to.id}`;
-
-                      let validationHTML = '';
-                      const currentUserId = parseInt(localStorage.getItem('userId'));
-                      const isPayeur = currentUserId === s.to.id;
-
-                      if (s.validated) {
-                        validationHTML = `<span style="color:green;">✔️ Remboursé</span>`;
-                      } else if (isPayeur) {
-                        validationHTML = `<button onclick="validateReimbursement(${data.expense.id}, ${s.from.id})"
-                                                  data-expense="${data.expense.id}" 
-                                                  data-debtor="${s.from.id}">
-                                              ✅ Valider
-                                          </button>`;
-                      } else {
-                        validationHTML = `<span style="color:red;">⏳ En attente</span>`;
-                      }
-
-                      return `<li>${fromName} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toName} – ${validationHTML}</li>`;
-                    }).join('');
-
-                    container.innerHTML = `
-                      <h4>Remboursements pour la dépense : <em>${data.expense.title} </em></h4>
-                      <ul>${settlementsHTML}</ul>
-                      <p><strong>Payé par :</strong> ${data.expense.paid_by} | <strong>Montant total :</strong> ${data.expense.amount.toFixed(2)} €</p>
-                      ${data.expense.paid_by_rib ? `<strong>💳 RIB de ${data.expense.paid_by} :</strong> ${data.expense.paid_by_rib}` : ''}
-                    `;
-                  })
-                  .catch(error => {
-                    console.error("Erreur :", error);
-                    document.getElementById('settlement-results').innerHTML = '<li>Erreur lors du chargement des remboursements.</li>';
-                  });
-                });
-
-
-
-
-            }
-            });
-
-            function removeMember(userId) {
-              if (!confirm("Confirmer la suppression de ce membre du groupe ?")) return;
-
-              fetch(`http://localhost:49162/api/groups/${groupId}/remove-member`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': 'Bearer ' + token,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ user_id: userId })
-              })
-              .then(res => res.json())
-              .then(data => {
-                alert(data.message || data.error);
-                location.reload();
-              })
-              .catch(() => alert("Erreur lors de la suppression du membre."));
-            }
-
-
-            function deleteExpense(expenseId) {
-              if (!confirm("Supprimer définitivement cette dépense ?")) return;
-
-              fetch(`http://localhost:49162/api/expenses/${expenseId}`, {
-                method: 'DELETE',
-                headers: {
-                  'Authorization': 'Bearer ' + token
-                }
-              })
-              .then(async res => {
-                if (handleAuthError(res)) return;
-                const msg = await res.json();
-                alert(msg.message || msg.error);
-                if (res.ok) location.reload();
-              })
-              .catch(() => alert("Erreur lors de la suppression de la dépense."));
-            }
-
-
-
-            function renderExpenses(expenses) {
-              const list = document.getElementById('group-expenses');
-              if (!expenses.length) {
-                  list.innerHTML = '<li>Aucune dépense.</li>';
-                  return;
-              }
-              
-
-              list.innerHTML = expenses.map(e => {
-                const receiptLink = e.receipt 
-                  ? `<br><a href="http://localhost:49162/uploads/receipts/${e.receipt}" target="_blank">📄 Voir le justificatif</a>` 
-                  : '';
-
-                return `
-                  <li>
-                    <strong>${e.title}</strong> – ${e.amount} €<br>
-                    Catégorie : ${e.category} | Date : ${e.date}<br>
-                    Payé par : ${e.paidBy}<br>
-                    Participants : ${e.concernedUsers.join(', ')}
-                    ${receiptLink}
-                    <br><button onclick="openEditExpenseModal(${e.id}, '${e.title}', '${e.amount}', '${e.category}')">✏️ Modifier infos</button>
-                    <br><button onclick="editParticipants(${e.id})">✏️ Modifier participants</button>
-                    <br><button onclick="deleteExpense(${e.id})">🗑️ Supprimer</button>
-                    
-                  </li><br>
-                `;
-              }).join('');
-
-
-            }
-
-
-
-
-
-
-            function downloadPdf() {
-              const token = localStorage.getItem('jwt');
-              if (!token) return window.location.href = '/login';
-
-              // 1. On récupère d'abord le nom du groupe
-              fetch(`http://localhost:49162/api/groups/${groupId}`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              })
-              .then(res => {
-                if (res.status === 401) {
-                  localStorage.removeItem('jwt');
-                  window.location.href = '/login';
-                  return;
-                }
-                return res.json();
-              })
-              .then(group => {
-                if (!group) return;
-
-                // 2. Ensuite on télécharge le PDF
-                fetch(`http://localhost:49162/api/groups/${groupId}/export/pdf`, {
-                  headers: { 'Authorization': 'Bearer ' + token }
-                })
-                .then(res => {
-                  if (res.status === 401) {
-                    localStorage.removeItem('jwt');
-                    window.location.href = '/login';
-                    return;
-                  }
-                  return res.blob();
-                })
-                .then(blob => {
-                  if (!blob) return;
-                  const url = window.URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  const safeGroupName = group.name.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
-                  link.href = url;
-                  link.download = `depenses_${safeGroupName}.pdf`;
-                  document.body.appendChild(link);
-                  link.click();
-                  link.remove();
-                });
-              })
-              .catch(err => {
-                console.error("Erreur lors de l’export PDF :", err);
-                alert("Impossible de télécharger le PDF.");
-              });
-            }
-
-
-
-            function downloadCsv() {
-              const token = localStorage.getItem('jwt');
-              if (!token) return window.location.href = '/login';
-
-              // 1. On récupère le nom du groupe
-              fetch(`http://localhost:49162/api/groups/${groupId}`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-              })
-              .then(res => {
-                if (res.status === 401) {
-                  localStorage.removeItem('jwt');
-                  window.location.href = '/login';
-                  return;
-                }
-                return res.json();
-              })
-              .then(group => {
-                if (!group) return;
-
-                // 2. Télécharger le CSV
-                fetch(`http://localhost:49162/api/groups/${groupId}/export/csv`, {
-                  headers: { 'Authorization': 'Bearer ' + token }
-                })
-                .then(res => {
-                  if (res.status === 401) {
-                    localStorage.removeItem('jwt');
-                    window.location.href = '/login';
-                    return;
-                  }
-                  return res.blob();
-                })
-                .then(blob => {
-                  if (!blob) return;
-
-                  const url = window.URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  const safeGroupName = group.name.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
-                  link.href = url;
-                  link.download = `depenses_${safeGroupName}.csv`;
-                  document.body.appendChild(link);
-                  link.click();
-                  link.remove();
-                });
-              })
-              .catch(err => {
-                console.error("Erreur CSV :", err);
-                alert("Impossible de télécharger le CSV.");
-              });
-            }
-
-
-
-            
-
-
-
-
-            document.getElementById('sort-expenses').addEventListener('change', e => {
-            const sorted = [...rawExpenses];
-            const by = e.target.value;
-            sorted.sort((a, b) => {
-                if (by === 'amount') return b.amount - a.amount;
-                if (by === 'paidBy') return a.paidBy.localeCompare(b.paidBy);
-                if (by === 'date') return new Date(b.date) - new Date(a.date);
-                return 0;
-            });
-            renderExpenses(sorted);
-            });
-
-            document.getElementById('expense-form').addEventListener('submit', e => {
-            e.preventDefault();
-
-            const form = new FormData();
-            form.append('title', document.getElementById('expense-title').value.trim());
-            form.append('amount', document.getElementById('expense-amount').value);
-            form.append('date', document.getElementById('expense-date').value);
-            form.append('category', document.getElementById('expense-category').value.trim());
-            form.append('group_id', groupId);
-
-            const users = document.getElementById('expense-users').value
-                .split(',').map(id => parseInt(id.trim())).filter(Boolean);
-            form.append('concerned_user_ids', JSON.stringify(users));
-
-            const file = document.getElementById('expense-receipt').files[0];
-            if (file) form.append('receipt', file);
-
-            fetch('http://localhost:49162/api/expenses', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token },
-                body: form
-            }).then(async res => {
-                const msg = await res.json();
-                document.getElementById('expense-result').textContent = msg.message || msg.error;
-                if (res.ok) location.reload();
-            });
-            });
-
-
-          document.getElementById('edit-form').addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const expenseId = document.getElementById('edit-expense-id').value;
-            const checkedBoxes = [...document.querySelectorAll('input[name="participants"]:checked')];
-            const participantIds = checkedBoxes.map(cb => parseInt(cb.value));
-
-            const res = await fetch(`http://localhost:49162/api/expenses/${expenseId}/participants`, {
-              method: 'PUT',
-              headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ concerned_user_ids: participantIds })
-            });
-
-            const msg = await res.json();
-            alert(msg.message || msg.error);
-            if (res.ok) {
-              closeEditModal();
-              location.reload();
-            }
-          });
-
-
-
-        }
-
-
-
-
-      async function editParticipants(expenseId) {
-        document.getElementById('edit-expense-id').value = expenseId;
-
-        const [members, expense] = await Promise.all([
-          fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-          }).then(r => r.json()),
-          fetch(`http://localhost:49162/api/expenses/${expenseId}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-          }).then(r => r.json())
-        ]);
-
-        const checkboxList = document.getElementById('edit-checkbox-list');
-        checkboxList.innerHTML = members.map(user => {
-          const checked = expense.concernedUsers.includes(user.id) ? 'checked' : '';
-          return `
-            <label>
-              <input type="checkbox" name="participants" value="${user.id}" ${checked}>
-              ${user.username} (${user.email})
-            </label><br>`;
-        }).join('');
-
-        document.getElementById('edit-modal').style.display = 'block';
-      }
-
-
-      function openEditExpenseModal(id, title, amount, category) {
-        document.getElementById('edit-expense-id').value = id;
-        document.getElementById('edit-expense-title').value = title;
-        document.getElementById('edit-expense-amount').value = amount;
-        document.getElementById('edit-expense-category').value = category;
-        document.getElementById('edit-expense-modal').style.display = 'block';
-      }
-
-      function closeEditExpenseModal() {
-        document.getElementById('edit-expense-modal').style.display = 'none';
-      }
-
-      document.getElementById('edit-expense-form').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const id = document.getElementById('edit-expense-id').value;
-        const title = document.getElementById('edit-expense-title').value.trim();
-        const amount = document.getElementById('edit-expense-amount').value;
-        const category = document.getElementById('edit-expense-category').value.trim();
-
-        const res = await fetch(`http://localhost:49162/api/expenses/${id}/edit`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ title, amount, category })
-        });
-
-        const msg = await res.json();
-        alert(msg.message || msg.error);
-        if (res.ok) {
-          closeEditExpenseModal();
-          location.reload();
-        }
-      });
-
-
-
-      // URL Mercure (adapter le port si besoin)
-      const mercureUrl = 'http://localhost:49165/.well-known/mercure';
-
-
-      function loadChatMessages() {
-        fetch(`http://localhost:49162/api/groups/${groupId}/messages`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        })
-        .then(res => res.json())
-        .then(messages => {
-          const chatBox = document.getElementById('chat-messages');
-          if (!messages.length) {
-            chatBox.innerHTML = "<em>Aucun message dans ce groupe.</em>";
-          } else {
-            chatBox.innerHTML = messages.map(m =>
-              `<div><strong>${m.author}</strong> <span style="color:#888;font-size:0.9em">[${m.createdAt}]</span><br>${m.content}</div>`
-            ).join('<hr style="margin:6px 0;">');
-            chatBox.scrollTop = chatBox.scrollHeight;
-          }
-        });
-      }
-
-      // Envoi de message
-      document.getElementById('chat-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const input = document.getElementById('chat-input');
-        const content = input.value.trim();
-        if (!content) return;
-
-        fetch(`http://localhost:49162/api/groups/${groupId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ content })
-        })
-        .then(res => res.json())
-        .then(data => {
-          input.value = '';
-          // Le message apparaîtra grâce à Mercure automatiquement
-        });
-      });
-
-      // Initial load
-      loadChatMessages();
-
-      // Souscription Mercure (écoute en temps réel)
-      const url = new URL(mercureUrl);
-      url.searchParams.append('topic', `/groups/${groupId}/messages`);
-      const eventSource = new EventSource(url);
-
-      eventSource.onmessage = function(event) {
-        // Un nouveau message a été publié sur ce groupe
-        const data = JSON.parse(event.data);
-        const chatBox = document.getElementById('chat-messages');
-        const html = `<div><strong>${data.author}</strong> <span style="color:#888;font-size:0.9em">[${data.createdAt}]</span><br>${data.content}</div>`;
-        // Ajoute le message à la fin
-        chatBox.innerHTML += (chatBox.innerHTML.trim() ? '<hr style="margin:6px 0;">' : '') + html;
-        chatBox.scrollTop = chatBox.scrollHeight;
-      };
-
-
-      function validateReimbursement(expenseId, debtorId) {
-        const token = localStorage.getItem('jwt');
-
-        fetch(`http://localhost:49162/api/expenses/${expenseId}/validate/${debtorId}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + token
-          }
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Erreur validation remboursement');
-          }
-          return response.json();
-        })
-        .then(data => {
-          // ✅ Mise à jour dynamique du bouton
-          const btn = document.querySelector(`button[data-expense="${expenseId}"][data-debtor="${debtorId}"]`);
-          if (btn) {
-            const span = document.createElement('span');
-            span.style.color = 'green';
-            span.textContent = '✔️ Remboursé';
-            btn.replaceWith(span);
-          }
-
-          // ✅ Affichage d’un message de confirmation
-          const toast = document.createElement('div');
-          toast.textContent = data.message;
-          toast.style.background = '#d4edda';
-          toast.style.color = '#155724';
-          toast.style.border = '1px solid #c3e6cb';
-          toast.style.padding = '8px';
-          toast.style.margin = '10px 0';
-          toast.style.borderRadius = '4px';
-          document.body.prepend(toast);
-
-          // Disparition du toast après 3 secondes
-          setTimeout(() => toast.remove(), 3000);
-        })
-        .catch(error => {
-          console.error('Erreur :', error);
-          alert("Erreur lors de la validation du remboursement.");
-        });
-      }
-
-
-
-
-
-    </script>
-
-    
-
-
+  <!-- Modal : Modifier Participants -->
+  <div class="modal fade" id="editParticipantsModal" tabindex="-1" aria-labelledby="editParticipantsLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="edit-participants-form">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editParticipantsLabel">Modifier les participants</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body" id="edit-participants-list">
+          Chargement...
+        </div>
+        <div class="modal-footer">
+          <input type="hidden" id="edit-participants-expense-id">
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal : Modifier Infos Dépense -->
+  <div class="modal fade" id="editExpenseModal" tabindex="-1" aria-labelledby="editExpenseLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="edit-expense-form">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editExpenseLabel">Modifier la dépense</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-expense-id">
+          <div class="mb-3">
+            <label for="edit-expense-title" class="form-label">Titre</label>
+            <input type="text" id="edit-expense-title" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="edit-expense-amount" class="form-label">Montant</label>
+            <input type="number" id="edit-expense-amount" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="edit-expense-category" class="form-label">Catégorie</label>
+            <input type="text" id="edit-expense-category" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+
+
+
+
+
+
+  
+  <script src="{{ asset('js/group.js') }}"></script>
 </body>
 </html>
+
