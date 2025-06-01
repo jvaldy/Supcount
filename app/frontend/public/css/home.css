@@ -16,14 +16,27 @@ body {
 
 .section-title {
   color: var(--primary);
-  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  margin-bottom: 0.1rem;
 }
 
 .form-title {
   color: var(--primary);
   font-weight: 600;
+  font-size: 1.8rem;
 }
 
-button {
-  font-weight: 500;
+.stat-card {
+  background-color: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  margin-bottom: 16px;
+}
+
+.spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
 }

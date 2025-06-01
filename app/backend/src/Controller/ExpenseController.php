@@ -179,105 +179,52 @@ class ExpenseController extends AbstractController
         return $this->json(['message' => 'Dépense mise à jour.']);
     }
 
-    #[Route('/api/expenses/{id}/settlements', name: 'expense_settlements', methods: ['GET'])]
-    public function getExpenseSettlements(Expense $expense, Security $security, UserRepository $userRepository): JsonResponse
-    {
-        $user = $security->getUser();
-        $group = $expense->getGroup();
+    
 
-        if (!$group->getMembers()->contains($user)) {
+    #[Route('/api/expenses/{id}/settlements', name: 'expense_settlements', methods: ['GET'])]
+    public function getExpenseSettlements(
+        Expense $expense,
+        Security $security,
+        ReimbursementRepository $reimbRepo
+    ): JsonResponse {
+        $user = $security->getUser();
+
+        if (!$expense->getGroup()->getMembers()->contains($user)) {
             return $this->json(['error' => 'Accès refusé'], 403);
         }
 
-        $amount = (float)$expense->getAmount();
-        $payer = $expense->getPaidBy();
-        $concernedUsers = $expense->getConcernedUsers()->toArray();
+        $reimbursements = $reimbRepo->findBy(['expense' => $expense]);
 
-        if (empty($concernedUsers)) {
-            return $this->json(['error' => 'Aucun utilisateur concerné par cette dépense.'], 400);
-        }
-
-        // Initialisation précise des soldes
-        $balances = [];
-
-        foreach ($concernedUsers as $userConcerned) {
-            $balances[$userConcerned->getId()] = 0.0;
-        }
-
-        // Inclure automatiquement le payeur s'il n’est pas dans la liste des concernés
-        if (!isset($balances[$payer->getId()])) {
-            $balances[$payer->getId()] = 0.0;
-        }
-
-        $individualShare = round($amount / count($concernedUsers), 2);
-
-        // Attribution des dettes à chaque utilisateur concerné
-        foreach ($concernedUsers as $userConcerned) {
-            $balances[$userConcerned->getId()] -= $individualShare;
-        }
-
-        // Le payeur récupère la totalité du montant dépensé
-        $balances[$payer->getId()] += $amount;
-
-        // Séparation claire des créditeurs et débiteurs
-        $creditors = [];
-        $debtors = [];
-
-        foreach ($balances as $userId => $balance) {
-            if ($balance > 0) {
-                $creditors[$userId] = $balance;
-            } elseif ($balance < 0) {
-                $debtors[$userId] = abs($balance);
-            }
-        }
-
-
-        $settlements = [];
-        foreach ($debtors as $debtorId => $debtAmount) {
-            foreach ($creditors as $creditorId => $creditAmount) {
-                if ($debtAmount === 0) break;
-
-                $payment = min($debtAmount, $creditAmount);
-
-                $fromUser = $userRepository->find($debtorId);
-                $toUser = $userRepository->find($creditorId);
-
-                $settlements[] = [
-                    'id' => uniqid(), // ou un ID réel si tu les enregistres
-                    'from' => [
-                        'id' => $debtorId,
-                        'username' => $fromUser?->getUsername(),
-                    ],
-                    'to' => [
-                        'id' => $creditorId,
-                        'username' => $toUser?->getUsername(),
-                        // 💡 Inclure le RIB du créancier SEULEMENT si le débiteur est l'utilisateur connecté
-                        'rib' => ($debtorId === $user->getId()) ? $toUser?->getRib() : null
-                    ],
-                    'amount' => round($payment, 2),
-                ];
-
-                $debtors[$debtorId] -= $payment;
-                $creditors[$creditorId] -= $payment;
-
-                if ($creditors[$creditorId] === 0.0) {
-                    unset($creditors[$creditorId]);
-                }
-            }
-        }
-
+        $settlements = array_map(function ($r) use ($user) {
+            return [
+                'id' => $r->getId(),
+                'from' => [
+                    'id' => $r->getFromUser()->getId(),
+                    'username' => $r->getFromUser()->getUsername(),
+                ],
+                'to' => [
+                    'id' => $r->getToUser()->getId(),
+                    'username' => $r->getToUser()->getUsername(),
+                    'rib' => $user->getId() === $r->getFromUser()->getId() ? $r->getToUser()->getRib() : null
+                ],
+                'amount' => $r->getAmount(),
+                'validated' => $r->isValidated(), // ✅ très important
+            ];
+        }, $reimbursements);
 
         return $this->json([
             'expense' => [
                 'id' => $expense->getId(),
                 'title' => $expense->getTitle(),
-                'amount' => $amount,
-                'paid_by' => $payer->getUsername(),
-                'paid_by_rib' => $payer->getRib(),
+                'amount' => $expense->getAmount(),
+                'paid_by' => $expense->getPaidBy()->getUsername(),
+                'paid_by_rib' => $expense->getPaidBy()->getRib(),
             ],
             'settlements' => $settlements,
         ]);
     }
+
+
 
 
 
@@ -471,8 +418,9 @@ class ExpenseController extends AbstractController
 
                 $reimb = new \App\Entity\Reimbursement();
                 $reimb->setExpense($expense);
-                $reimb->setFromUser($userRepo->find($from));
-                $reimb->setToUser($userRepo->find($to));
+                $reimb->setFrom($userRepo->find($from));
+                $reimb->setTo($userRepo->find($to));
+
                 $reimb->setAmount($pay);
 
                 $em->persist($reimb);
@@ -493,7 +441,7 @@ class ExpenseController extends AbstractController
         EntityManagerInterface $em
     ): JsonResponse {
         $user = $security->getUser();
-        if ($reimb->getFromUser() !== $user) {
+        if ($reimb->getFrom() !== $user) {
             return $this->json(['error' => 'Non autorisé.'], 403);
         }
 
@@ -545,6 +493,7 @@ class ExpenseController extends AbstractController
 
         return new JsonResponse(['message' => 'Remboursement validé']);
     }
+
 
 
 
