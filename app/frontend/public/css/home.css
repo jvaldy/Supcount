@@ -1,0 +1,29 @@
+:root {
+  --primary: #8A2BE2;
+  --secondary: #F48FB1;
+  --text-dark: #333333;
+  --bg-light: #FAFAFA;
+}
+
+body {
+  background-color: var(--bg-light);
+  font-family: 'Poppins', sans-serif;
+}
+
+.logo {
+  height: 60px;
+}
+
+.section-title {
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.form-title {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+button {
+  font-weight: 500;
+}

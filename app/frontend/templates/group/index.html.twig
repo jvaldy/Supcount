@@ -135,6 +135,35 @@
         const groupId = {{ groupId }};
         let rawExpenses = [];
 
+
+
+        let userId = null; // Sera visible dans tout le fichier
+
+        fetch('http://localhost:49162/api/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        }).then(async res => {
+          if (res.ok) {
+            const user = await res.json();
+            userId = user.id;
+            localStorage.setItem('userId', userId); 
+
+            console.log("Utilisateur connecté :", user);
+
+          } else {
+            localStorage.removeItem('jwt');
+            window.location.href = '/login';
+          }
+        }).catch(() => {
+          alert("Erreur : impossible de récupérer les informations utilisateur.");
+        });
+
+
+
+
+
         function showTab(tabId) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
@@ -273,14 +302,23 @@
                 settlementSelect.appendChild(opt);
                 });
 
-                // Au changement de sélection, afficher remboursements
                 settlementSelect.addEventListener('change', () => {
                   const expenseId = settlementSelect.value;
 
-                  fetch(`http://localhost:49162/api/expenses/${expenseId}/settlements`, {
+                  // 1. Confirm the settlements (will persist Reimbursement entities)
+                  fetch(`http://localhost:49162/api/expenses/${expenseId}/confirm-settlements`, {
+                    method: 'POST',
                     headers: {
                       'Authorization': 'Bearer ' + token
                     }
+                  })
+                  .then(() => {
+                    // 2. Then fetch the settlement data to render
+                    return fetch(`http://localhost:49162/api/expenses/${expenseId}/settlements`, {
+                      headers: {
+                        'Authorization': 'Bearer ' + token
+                      }
+                    });
                   })
                   .then(res => res.json())
                   .then(data => {
@@ -294,11 +332,25 @@
                     const settlementsHTML = data.settlements.map(s => {
                       const fromName = s.from.username || `Utilisateur #${s.from.id}`;
                       const toName = s.to.username || `Utilisateur #${s.to.id}`;
-                      return `<li>${fromName} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toName}</li>`;
+
+                      let validationHTML = '';
+                      const currentUserId = parseInt(localStorage.getItem('userId'));
+                      const isPayeur = currentUserId === s.to.id;
+
+                      if (s.validated) {
+                        validationHTML = `<span style="color:green;">✔️ Remboursé</span>`;
+                      } else if (isPayeur) {
+                        validationHTML = `<button onclick="validateReimbursement(${data.expense.id}, ${s.from.id})"
+                                                  data-expense="${data.expense.id}" 
+                                                  data-debtor="${s.from.id}">
+                                              ✅ Valider
+                                          </button>`;
+                      } else {
+                        validationHTML = `<span style="color:red;">⏳ En attente</span>`;
+                      }
+
+                      return `<li>${fromName} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toName} – ${validationHTML}</li>`;
                     }).join('');
-
-                    console.log(data.expense)
-
 
                     container.innerHTML = `
                       <h4>Remboursements pour la dépense : <em>${data.expense.title} </em></h4>
@@ -312,6 +364,7 @@
                     document.getElementById('settlement-results').innerHTML = '<li>Erreur lors du chargement des remboursements.</li>';
                   });
                 });
+
 
 
             }
@@ -699,6 +752,56 @@
         chatBox.innerHTML += (chatBox.innerHTML.trim() ? '<hr style="margin:6px 0;">' : '') + html;
         chatBox.scrollTop = chatBox.scrollHeight;
       };
+
+
+      function validateReimbursement(expenseId, debtorId) {
+        const token = localStorage.getItem('jwt');
+
+        fetch(`http://localhost:49162/api/expenses/${expenseId}/validate/${debtorId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Erreur validation remboursement');
+          }
+          return response.json();
+        })
+        .then(data => {
+          // ✅ Mise à jour dynamique du bouton
+          const btn = document.querySelector(`button[data-expense="${expenseId}"][data-debtor="${debtorId}"]`);
+          if (btn) {
+            const span = document.createElement('span');
+            span.style.color = 'green';
+            span.textContent = '✔️ Remboursé';
+            btn.replaceWith(span);
+          }
+
+          // ✅ Affichage d’un message de confirmation
+          const toast = document.createElement('div');
+          toast.textContent = data.message;
+          toast.style.background = '#d4edda';
+          toast.style.color = '#155724';
+          toast.style.border = '1px solid #c3e6cb';
+          toast.style.padding = '8px';
+          toast.style.margin = '10px 0';
+          toast.style.borderRadius = '4px';
+          document.body.prepend(toast);
+
+          // Disparition du toast après 3 secondes
+          setTimeout(() => toast.remove(), 3000);
+        })
+        .catch(error => {
+          console.error('Erreur :', error);
+          alert("Erreur lors de la validation du remboursement.");
+        });
+      }
+
+
+
+
 
     </script>
 

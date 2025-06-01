@@ -51,4 +51,6 @@ class ProfileController extends AbstractController
         return $this->json(['message' => 'RIB enregistré.']);
     }
 
+    
+
 }

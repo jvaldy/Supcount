@@ -51,8 +51,10 @@ class Expense
     #[ORM\Column(type: 'boolean')]
     private bool $fullyReimbursed = false;
 
-    #[ORM\OneToMany(mappedBy: "expense", targetEntity: Reimbursement::class)]
+
+    #[ORM\OneToMany(mappedBy: 'expense', targetEntity: Reimbursement::class, cascade: ['persist', 'remove'])]
     private Collection $reimbursements;
+
 
     public function __construct()
     {
@@ -198,4 +200,10 @@ class Expense
         }
         return false;
     }
+
+
+
+
+
+
 }

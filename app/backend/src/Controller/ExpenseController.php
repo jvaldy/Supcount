@@ -18,6 +18,8 @@ use Symfony\Component\HttpFoundation\File\Exception\FileException;
 
 
 use App\Repository\UserRepository;
+use App\Repository\ReimbursementRepository;
+
 
 
 class ExpenseController extends AbstractController
@@ -500,6 +502,50 @@ class ExpenseController extends AbstractController
 
         return $this->json(['message' => 'Remboursement confirmé.']);
     }
+
+
+    #[Route('/api/expenses/{expenseId}/validate/{debtorId}', name: 'validate_reimbursement', methods: ['POST'])]
+    public function validateReimbursement(
+        int $expenseId,
+        int $debtorId,
+        ExpenseRepository $expenseRepo,
+        UserRepository $userRepo,
+        ReimbursementRepository $reimbursementRepo,
+        EntityManagerInterface $em,
+        Security $security
+    ): JsonResponse {
+        $expense = $expenseRepo->find($expenseId);
+        $payeur = $security->getUser();
+
+        if (!$expense || !$payeur) {
+            return new JsonResponse(['error' => 'Expense or user not found'], 404);
+        }
+
+        $debtor = $userRepo->find($debtorId);
+        if (!$debtor) {
+            return new JsonResponse(['error' => 'Debtor not found'], 404);
+        }
+
+        $reimbursement = $reimbursementRepo->findOneBy([
+            'expense' => $expense,
+            'from' => $debtor,
+            'to' => $payeur
+        ]);
+
+        if (!$reimbursement) {
+            return new JsonResponse(['error' => 'Reimbursement not found'], 404);
+        }
+
+        if ($reimbursement->isValidated()) {
+            return new JsonResponse(['message' => 'Already validated']);
+        }
+
+        $reimbursement->setValidated(true);
+        $em->flush();
+
+        return new JsonResponse(['message' => 'Remboursement validé']);
+    }
+
 
 
 

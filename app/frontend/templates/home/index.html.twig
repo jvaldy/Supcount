@@ -1,333 +1,66 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Page d'accueil</title>
+  <meta charset="UTF-8">
+  <title>Accueil – SUPCOUNT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Fonts + Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ asset('css/home.css') }}">
 </head>
 <body>
-    <h1>Bienvenue sur la page d'accueil</h1>
 
-    <p id="user-info">Chargement des données utilisateur...</p>
-    <button id="logout">Déconnexion</button>
+  <!-- Logo + Header -->
+  <nav class="navbar navbar-light bg-white shadow-sm px-4">
+    <a class="navbar-brand" href="#">
+      <img src="{{ asset('images/supcount.png') }}" alt="Logo SUPCOUNT" class="logo">
+    </a>
+    <button class="btn btn-outline-danger" id="logout">Déconnexion</button>
+  </nav>
 
-    <h2>📊 Mes statistiques de dépenses</h2>
-    <div id="stats-total">Chargement...</div>
-    <div id="stats-by-category"></div>
-    <div id="stats-by-month"></div>
-    <div id="stats-by-group"></div>
-    <hr>
+  <div class="container mt-5 mb-5">
+    <h1 class="text-center form-title">Bienvenue sur SUPCOUNT</h1>
+    <p id="user-info" class="text-center text-muted">Chargement des données utilisateur...</p>
 
+    <!-- Statistiques -->
+    <section class="mt-5">
+      <h2 class="section-title">📊 Mes statistiques de dépenses</h2>
+      <div class="row">
+        <div class="col-md-3" id="stats-total"></div>
+        <div class="col-md-3" id="stats-by-category"></div>
+        <div class="col-md-3" id="stats-by-month"></div>
+        <div class="col-md-3" id="stats-by-group"></div>
+      </div>
+    </section>
 
+    <!-- RIB -->
+    <section class="mt-5">
+      <h3>💳 Ajouter mon RIB</h3>
+      <p id="rib-display" class="text-success fw-bold"></p>
+      <div class="input-group mb-3">
+        <input type="text" id="rib-input" class="form-control" placeholder="Votre RIB">
+        <button class="btn btn-primary" onclick="uploadRib()">Enregistrer</button>
+      </div>
+    </section>
 
-    <h3>Ajouter mon RIB</h3>
+    <!-- Création de groupe -->
+    <section class="mt-5">
+      <h2 class="section-title">➕ Créer un nouveau groupe</h2>
+      <div class="input-group mb-3">
+        <input type="text" id="new-group-name" class="form-control" placeholder="Nom du groupe">
+        <button class="btn btn-success" id="create-group">Créer</button>
+      </div>
+    </section>
 
-    <p id="rib-display" style="font-weight: bold; color: green;"></p>
-    
+    <!-- Liste de groupes -->
+    <section class="mt-5">
+      <h2 class="section-title">👥 Mes groupes</h2>
+      <div id="group-list" class="list-group">Chargement...</div>
+    </section>
+  </div>
 
-    <input type="text" id="rib-input" placeholder="Votre RIB">
-    <button onclick="uploadRib()">Enregistrer le RIB</button>
-
-
-
-
-    <h2>Créer un nouveau groupe</h2>
-    <input type="text" id="new-group-name" placeholder="Nom du groupe">
-    <button id="create-group">Créer le groupe</button>
-    <hr>
-
-
-    <h2>Mes groupes</h2>
-    <ul id="group-list">Chargement...</ul>
-
-<script>
-    const token = localStorage.getItem('jwt');
-    let userId = null;
-
-
-    if (!token) {
-        window.location.href = '/login';
-    } else {
-        fetch('http://localhost:49162/api/profile', {
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        }).then(async res => {
-            if (res.ok) {
-                const user = await res.json();
-                userId = user.id;
-
-                console.log("Utilisateur récupéré :", user);
-
-                document.getElementById('user-info').textContent =
-                    `Connecté en tant que : ${user.username} (${user.email}) ${user.rib}`;
-
-                
-                displayRibIfExists(user);
-                
-
-                loadGroups();
-                loadStatistics();
-
-            } else {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login';
-            }
-        }).catch(() => {
-            document.getElementById('user-info').textContent = 'Impossible de charger les données utilisateur.';
-        });
-    }
-
-    function loadGroups() {
-        fetch('http://localhost:49162/api/my-groups', {
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        }).then(res => res.json())
-          .then(groups => {
-            const list = document.getElementById('group-list');
-            list.innerHTML = '';
-
-            if (groups.length === 0) {
-                list.textContent = 'Aucun groupe trouvé.';
-                return;
-            }
-
-            groups.forEach(group => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <strong>${group.name}</strong> (ID: ${group.id})<br>
-                    <button onclick="window.location.href='/group/${group.id}'">Voir</button>
-                    <button onclick="deleteGroup(${group.id})">Supprimer</button>
-                    <button onclick="viewMembers(${group.id})">Voir les membres</button>
-                    <button onclick="checkRole(${group.id})">Mon rôle</button>
-                    <div id="group-${group.id}-members"></div>
-                    <div id="group-${group.id}-role"></div>
-                    <button onclick="loadSettlements(${group.id})">Voir remboursements</button>
-                    <div id="group-${group.id}-settlements"></div>
-                    <hr>
-                `;
-                list.appendChild(li);
-
-               
-            });
-        }).catch(() => {
-            document.getElementById('group-list').textContent = 'Erreur de chargement des groupes.';
-        });
-    }
-
-    function loadSettlements(groupId) {
-        fetch(`http://localhost:49162/api/groups/${groupId}/expenses`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        })
-        .then(r => r.json())
-        .then(expenses => {
-            expenses.forEach(exp => {
-                fetch(`http://localhost:49162/api/expenses/${exp.id}/settlements`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    const container = document.getElementById(`group-${groupId}-settlements`) || document.createElement('div');
-                    container.id = `group-${groupId}-settlements`;
-                    document.getElementById(`group-${groupId}-role`).after(container);
-                    container.innerHTML += `<h4>Remboursements pour ${exp.title}</h4>`;
-
-                    if (!data.settlements || !data.settlements.length) {
-                        container.innerHTML += `<p>Aucun remboursement pour cette dépense.</p>`;
-                        return;
-                    }
-
-                    const settlementsHTML = data.settlements.map(s => {
-                        const fromUser = s.from;
-                        const toUser = s.to;
-
-                        // 💡 Vérifie si le user connecté est le débiteur, et s’il y a un rib côté toUser
-                        const ribInfo = (fromUser.id === data.current_user_id && toUser.rib)
-                            ? `<br><small>💳 RIB de ${toUser.username} : ${toUser.rib}</small>`
-                            : '';
-
-                        return `<li>${fromUser.username} doit <strong>${s.amount.toFixed(2)} €</strong> à ${toUser.username}${ribInfo}</li>`;
-                    }).join('');
-
-                    container.innerHTML += `<ul>${settlementsHTML}</ul>`;
-                });
-            });
-        });
-    }
-
-
-    function markPaid(id) {
-        fetch(`http://localhost:49162/api/reimbursements/${id}/mark-paid`, {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token }
-        })
-        .then(r => r.json())
-        .then(msg => alert(msg.message || msg.error));
-    }
-
-
-    function deleteGroup(groupId) {
-        if (!confirm("Supprimer ce groupe ?")) return;
-
-        fetch(`http://localhost:49162/api/groups/${groupId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        }).then(res => {
-            if (res.ok) {
-                alert("Groupe supprimé");
-                loadGroups();
-            } else {
-                alert("Erreur lors de la suppression");
-            }
-        });
-    }
-
-    function viewMembers(groupId) {
-        fetch(`http://localhost:49162/api/groups/${groupId}/members`, {
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        }).then(res => res.json())
-          .then(members => {
-            const container = document.getElementById(`group-${groupId}-members`);
-            container.innerHTML = '<strong>Membres :</strong><ul>' +
-                members.map(m => `<li>${m.username} (${m.email})</li>`).join('') +
-                '</ul>';
-        }).catch(() => {
-            alert("Erreur de récupération des membres.");
-        });
-    }
-
-    function checkRole(groupId) {
-        fetch(`http://localhost:49162/api/groups/${groupId}/role`, {
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        }).then(res => res.json())
-          .then(data => {
-            const container = document.getElementById(`group-${groupId}-role`);
-            container.innerHTML = `<strong>Rôle :</strong> ${data.role}`;
-        }).catch(() => {
-            alert("Erreur lors de la récupération du rôle.");
-        });
-    }
-
-    // ➕ Créer un groupe
-    document.getElementById('create-group').addEventListener('click', () => {
-        const groupName = document.getElementById('new-group-name').value.trim();
-        if (!groupName) {
-            alert("Le nom du groupe est requis.");
-            return;
-        }
-
-        fetch('http://localhost:49162/api/groups', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify({ name: groupName })
-        }).then(async res => {
-            if (res.ok) {
-                alert("Groupe créé !");
-                document.getElementById('new-group-name').value = '';
-                loadGroups();
-            } else {
-                const error = await res.json();
-                alert("Erreur : " + (error.error || "Impossible de créer le groupe."));
-            }
-        }).catch(() => {
-            alert("Erreur réseau");
-        });
-    });
-
-    // Déconnexion
-    document.getElementById('logout').addEventListener('click', () => {
-        localStorage.removeItem('jwt');
-        window.location.href = '/login';
-    });
-
-    function loadStatistics() {
-        fetch('http://localhost:49162/api/statistics', {
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        })
-        .then(res => res.json())
-        .then(stats => {
-            // Total
-            document.getElementById('stats-total').innerHTML = `<strong>Total :</strong> ${parseFloat(stats.total).toFixed(2)} €`;
-
-            // Par catégorie
-            const catHtml = Object.entries(stats.byCategory).map(
-                ([cat, val]) => `<li>${cat} : ${parseFloat(val).toFixed(2)} €</li>`
-            ).join('');
-            document.getElementById('stats-by-category').innerHTML = `<h4>Par catégorie :</h4><ul>${catHtml}</ul>`;
-
-            // Par mois
-            const monthHtml = Object.entries(stats.byMonth).map(
-                ([month, val]) => `<li>${month} : ${parseFloat(val).toFixed(2)} €</li>`
-            ).join('');
-            document.getElementById('stats-by-month').innerHTML = `<h4>Par mois :</h4><ul>${monthHtml}</ul>`;
-           
-            // Par groupe
-            const groupHtml = Object.entries(stats.byGroup).map(
-                ([group, val]) => `<li>${group} : ${parseFloat(val).toFixed(2)} €</li>`
-            ).join('');
-            document.getElementById('stats-by-group').innerHTML = `<h4>Par groupe :</h4><ul>${groupHtml}</ul>`;
-
-      
-        })
-        .catch(() => {
-            document.getElementById('stats-total').textContent = 'Erreur de chargement des statistiques.';
-        });
-    }
-
-
-
-
-    function uploadRib() {
-        const rib = document.getElementById('rib-input').value.trim();
-        if (!rib) return alert("Veuillez saisir un RIB.");
-
-        fetch('http://localhost:49162/api/user/upload-rib', {
-            method: 'POST',
-            headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ rib })
-        }).then(r => r.json())
-            .then(data => alert(data.message || data.error));
-    }
-
-
-
-    function displayRibIfExists(user) {
-        const ribDisplay = document.getElementById('rib-display');
-        if (!ribDisplay) {
-            console.warn("rib-display non trouvé dans le DOM");
-            return;
-        }
-
-        if (user.rib && user.rib.trim() !== "") {
-            ribDisplay.textContent = `RIB enregistré : ${user.rib}`;
-        } else {
-            ribDisplay.textContent = "Aucun RIB enregistré pour l'instant.";
-        }
-    }
-
-
-
-
-
-</script>
-
+  <script src="{{ asset('js/home.js') }}"></script>
 </body>
 </html>

@@ -39,6 +39,6 @@ class RegistrationController extends AbstractController
         $entityManager->persist($user);
         $entityManager->flush();
 
-        return new JsonResponse(['message' => 'User successfully registered'], Response::HTTP_CREATED);
+        return new JsonResponse(['message' => 'Inscription validée'], Response::HTTP_CREATED);
     }
 }

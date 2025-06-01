@@ -24,13 +24,13 @@ class LoginController extends AbstractController
         $data = json_decode($request->getContent(), true);
 
         if (!isset($data['email'], $data['password'])) {
-            return new JsonResponse(['message' => 'Email and password required'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['message' => 'Email et mot de passe requis'], Response::HTTP_BAD_REQUEST);
         }
 
         $user = $em->getRepository(User::class)->findOneBy(['email' => $data['email']]);
 
         if (!$user || !$passwordHasher->isPasswordValid($user, $data['password'])) {
-            return new JsonResponse(['message' => 'Invalid credentials'], Response::HTTP_UNAUTHORIZED);
+            return new JsonResponse(['message' => 'Informations d\'identification invalides'], Response::HTTP_UNAUTHORIZED);
         }
 
         // 🔥 Ici, on force à créer un token avec l'email dans le payload

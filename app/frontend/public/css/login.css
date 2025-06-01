@@ -1,0 +1,59 @@
+:root {
+    --primary: #8A2BE2;
+    --secondary: #F48FB1;
+    --text-dark: #333333;
+    --bg-light: #FAFAFA;
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: 'Poppins', sans-serif;
+}
+
+.logo {
+    max-height: 120px;
+}
+
+.form-container {
+    max-width: 450px;
+    margin: auto;
+    margin-top: 60px;
+    background-color: #fff;
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.form-title {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    border: none;
+}
+
+.btn-primary:hover {
+    background-color: #7326c7;
+}
+
+.form-text-link {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.form-text-link a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.form-text-link a:hover {
+    text-decoration: underline;
+}
+
+#login-result {
+    text-align: center;
+    margin-top: 10px;
+    font-weight: 500;
+}

@@ -10,6 +10,8 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\User;
 
+use App\Entity\Message;
+
 #[ORM\Entity(repositoryClass: GroupRepository::class)]
 #[ORM\Table(name: 'groups_data')] 
 class Group
@@ -33,12 +35,16 @@ class Group
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\OneToMany(mappedBy: "group", targetEntity: Message::class, cascade: ['persist', 'remove'])]
+    private Collection $messages;
+
     public function __construct()
     {
         $this->members = new ArrayCollection();
         // $this->createdAt = new \DateTimeImmutable();
         $this->createdAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
-
+        $this->messages = new ArrayCollection();
+        
     }
 
     public function getId(): ?int
@@ -102,4 +108,14 @@ class Group
 
         return $this;
     }
+
+
+    
+
+    public function getMessages(): Collection
+    {
+        return $this->messages;
+    }
+
+
 }
